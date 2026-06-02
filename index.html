@@ -467,6 +467,7 @@ select.pit-sel{flex:1;background:var(--s2);border:1px solid var(--border);color:
     <div class="panel-hdr"><span class="panel-title">👤 選手管理</span></div>
     <div class="settings-body">
       <button class="btn-add-player" onclick="openEditModal(null)">＋ 新しい選手を追加</button>
+      <button onclick="resetAllData()" style="width:100%;padding:9px;background:none;border:1px solid var(--red);color:var(--red);border-radius:9px;font-size:12px;font-weight:700;font-family:'Noto Sans JP',sans-serif;cursor:pointer;margin-bottom:10px;">🗑 保存データをリセット（初期状態に戻す）</button>
       <div class="filter-tabs">
         <button class="filter-tab on-all" onclick="setSettingsFilter('all',this)">全員</button>
         <button class="filter-tab" onclick="setSettingsFilter('green',this)">🟢 GREEN</button>
@@ -561,27 +562,32 @@ const FIELD_POS = {
 let currentTeam = 'green';
 
 let nextId = 20;
-// 各選手に team:'green'|'black' を追加
+// GREEN: 1〜9番スタメン9人 + ベンチ1人
+// BLACK: 1〜9番スタメン9人 + ベンチ1人
+// ※実際のチーム分けは「選手」タブで自由に変更できます
 let players = [
-  {id:1,  name:'加藤 琥翔', kana:'かとう くうと',   num:90, pos:'―', order:1,  inStamen:true,  subbedOut:false, team:'green'},
-  {id:2,  name:'北野 絵翔', kana:'きたの かいと',   num:68, pos:'―', order:2,  inStamen:true,  subbedOut:false, team:'green'},
-  {id:3,  name:'青柳 匠真', kana:'あおやぎ たくま', num:31, pos:'―', order:3,  inStamen:true,  subbedOut:false, team:'green'},
-  {id:4,  name:'稲田 雄心', kana:'いなだ ゆうしん', num:48, pos:'―', order:4,  inStamen:true,  subbedOut:false, team:'green'},
-  {id:5,  name:'田嶋 陽樹', kana:'たじま はるき',   num:95, pos:'―', order:5,  inStamen:true,  subbedOut:false, team:'green'},
-  {id:6,  name:'平岡 流安', kana:'ひらおか るあん', num:73, pos:'―', order:6,  inStamen:true,  subbedOut:false, team:'green'},
-  {id:7,  name:'鎌田 悠誠', kana:'かまた ゆうせい', num:53, pos:'―', order:7,  inStamen:true,  subbedOut:false, team:'green'},
-  {id:8,  name:'溝渕 遥輝', kana:'みぞぶち はるき', num:81, pos:'―', order:8,  inStamen:true,  subbedOut:false, team:'green'},
-  {id:9,  name:'鈴木 歩',   kana:'すずき あゆむ',  num:46, pos:'―', order:9,  inStamen:true,  subbedOut:false, team:'green'},
-  {id:10, name:'酒井 勝',   kana:'さかい まさる',  num:36, pos:'―', order:null,inStamen:false, subbedOut:false, team:'green'},
-  {id:11, name:'清岡 迅八', kana:'きよおか じんぱ', num:70, pos:'―', order:null,inStamen:false, subbedOut:false, team:'green'},
-  {id:12, name:'篠部 大和', kana:'さなべ やまと',  num:42, pos:'―', order:null,inStamen:false, subbedOut:false, team:'green'},
-  {id:13, name:'松本 蒼央', kana:'まつもと あお',  num:56, pos:'―', order:null,inStamen:false, subbedOut:false, team:'black'},
-  {id:14, name:'井上 榮悟', kana:'いのうえ えいご', num:69, pos:'―', order:null,inStamen:false, subbedOut:false, team:'black'},
-  {id:15, name:'斎藤 歩',   kana:'さいとう あゆむ',num:null,pos:'―',order:null,inStamen:false, subbedOut:false, team:'black'},
-  {id:16, name:'大川 瑛',   kana:'おおかわ えいと',num:35, pos:'―', order:null,inStamen:false, subbedOut:false, team:'black'},
-  {id:17, name:'森下 蒼大', kana:'もりした そうた', num:82, pos:'―', order:null,inStamen:false, subbedOut:false, team:'black'},
-  {id:18, name:'得能 奏通', kana:'とくのう かなと', num:23, pos:'―', order:null,inStamen:false, subbedOut:false, team:'black'},
-  {id:19, name:'大西 汰央', kana:'おおにし たお',  num:27, pos:'―', order:null,inStamen:false, subbedOut:false, team:'black'},
+  // ── GREEN スタメン (1〜9) ──
+  {id:1,  name:'加藤 琥翔', kana:'かとう くうと',   num:90,  pos:'―', order:1, inStamen:true,  subbedOut:false, team:'green'},
+  {id:2,  name:'北野 絵翔', kana:'きたの かいと',   num:68,  pos:'―', order:2, inStamen:true,  subbedOut:false, team:'green'},
+  {id:3,  name:'青柳 匠真', kana:'あおやぎ たくま', num:31,  pos:'―', order:3, inStamen:true,  subbedOut:false, team:'green'},
+  {id:4,  name:'稲田 雄心', kana:'いなだ ゆうしん', num:48,  pos:'―', order:4, inStamen:true,  subbedOut:false, team:'green'},
+  {id:5,  name:'田嶋 陽樹', kana:'たじま はるき',   num:95,  pos:'―', order:5, inStamen:true,  subbedOut:false, team:'green'},
+  {id:6,  name:'平岡 流安', kana:'ひらおか るあん', num:73,  pos:'―', order:6, inStamen:true,  subbedOut:false, team:'green'},
+  {id:7,  name:'鎌田 悠誠', kana:'かまた ゆうせい', num:53,  pos:'―', order:7, inStamen:true,  subbedOut:false, team:'green'},
+  {id:8,  name:'溝渕 遥輝', kana:'みぞぶち はるき', num:81,  pos:'―', order:8, inStamen:true,  subbedOut:false, team:'green'},
+  {id:9,  name:'鈴木 歩',   kana:'すずき あゆむ',  num:46,  pos:'―', order:9, inStamen:true,  subbedOut:false, team:'green'},
+  // ── GREEN ベンチ ──
+  {id:10, name:'酒井 勝',   kana:'さかい まさる',  num:36,  pos:'―', order:null, inStamen:false, subbedOut:false, team:'green'},
+  // ── BLACK スタメン (1〜9) ──
+  {id:11, name:'松本 蒼央', kana:'まつもと あお',  num:56,  pos:'―', order:1, inStamen:true,  subbedOut:false, team:'black'},
+  {id:12, name:'井上 榮悟', kana:'いのうえ えいご', num:69,  pos:'―', order:2, inStamen:true,  subbedOut:false, team:'black'},
+  {id:13, name:'斎藤 歩',   kana:'さいとう あゆむ', num:null,pos:'―', order:3, inStamen:true,  subbedOut:false, team:'black'},
+  {id:14, name:'大川 瑛',   kana:'おおかわ えいと', num:35,  pos:'―', order:4, inStamen:true,  subbedOut:false, team:'black'},
+  {id:15, name:'森下 蒼大', kana:'もりした そうた', num:82,  pos:'―', order:5, inStamen:true,  subbedOut:false, team:'black'},
+  {id:16, name:'得能 奏通', kana:'とくのう かなと', num:23,  pos:'―', order:6, inStamen:true,  subbedOut:false, team:'black'},
+  {id:17, name:'大西 汰央', kana:'おおにし たお',  num:27,  pos:'―', order:7, inStamen:true,  subbedOut:false, team:'black'},
+  {id:18, name:'清岡 迅八', kana:'きよおか じんぱ', num:70,  pos:'―', order:8, inStamen:true,  subbedOut:false, team:'black'},
+  {id:19, name:'篠部 大和', kana:'さなべ やまと',  num:42,  pos:'―', order:9, inStamen:true,  subbedOut:false, team:'black'},
 ];
 
 // チーム別 field/pitch 管理
@@ -1054,6 +1060,15 @@ function newGame() {
   saveState();
   renderAll(); renderSubPage(); renderPitchPage();
   toast('新ゲーム開始！');
+}
+
+// ═══════════════════════════════════════
+// RESET ALL DATA
+// ═══════════════════════════════════════
+function resetAllData() {
+  if(!confirm('全データを初期状態に戻しますか？\n選手の編集内容・打順・交代履歴がすべて消えます。'))return;
+  try { localStorage.removeItem('baseball_mgr_v1'); } catch(e){}
+  location.reload();
 }
 
 // ═══════════════════════════════════════
