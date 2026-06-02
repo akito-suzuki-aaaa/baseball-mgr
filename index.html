@@ -618,6 +618,7 @@ function switchTeam(t) {
   subOutId = null; subInId = null;
   document.getElementById('tbtn-green').className = 'team-btn' + (t==='green' ? ' on-green' : '');
   document.getElementById('tbtn-black').className = 'team-btn' + (t==='black' ? ' on-black' : '');
+  saveState();
   document.getElementById('hdr').style.borderBottomColor = t==='green' ? 'var(--team-green2)' : '#666';
   document.getElementById('lineup-panel-title').textContent = '📋 ' + (t==='green' ? '🟢 GREEN' : '⚫ BLACK') + ' 打順';
   renderAll();
@@ -704,6 +705,7 @@ function doSwap(idA, idB) {
     const ord=s.order; s.inStamen=false; s.order=null; bn.inStamen=true; bn.order=ord;
     toast(`${bn.name} をスタメンへ`);
   }
+  saveState();
   swapFirstId=null; document.getElementById('swap-hint').classList.remove('show');
   renderAll();
 }
@@ -767,7 +769,7 @@ function confirmPos() {
     Object.keys(fa()).forEach(k=>{if(fa()[k]===p.id)fa()[k]=null;});
     fa()[posModalSel]=p.id;
   }
-  closePosModal(); toast(`${p.name} → ${posModalSel}`); renderAll();
+  saveState(); closePosModal(); toast(`${p.name} → ${posModalSel}`); renderAll();
 }
 function closePosModal(){ document.getElementById('pos-modal').classList.remove('open'); }
 
@@ -788,7 +790,7 @@ function confirmFa() {
   if(pid) Object.keys(fa()).forEach(k=>{if(fa()[k]===pid)fa()[k]=null;});
   fa()[faModalPos]=pid;
   if(pid){const p=players.find(x=>x.id===pid);if(p)p.pos=faModalPos;}
-  closeFaModal(); toast(pid?`${players.find(x=>x.id===pid)?.name} → ${faModalPos}`:`${faModalPos} クリア`); renderAll();
+  saveState(); closeFaModal(); toast(pid?`${players.find(x=>x.id===pid)?.name} → ${faModalPos}`:`${faModalPos} クリア`); renderAll();
 }
 
 // ═══════════════════════════════════════
@@ -850,6 +852,7 @@ function doSub() {
   outP.inStamen=false; outP.order=null; outP.subbedOut=true;
   Object.keys(fa()).forEach(pos=>{ if(fa()[pos]===subOutId) fa()[pos]=subInId; });
   sl().unshift({outName:outP.name,inName:inP.name,pos:inP.pos,time:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})});
+  saveState();
   toast(`${outP.name} → ${inP.name} 交代完了`);
   subOutId=null; subInId=null;
   renderAll(); renderSubPage();
@@ -912,6 +915,7 @@ function addToPitchOrder() {
   if(cur.find(x=>x.playerId===pid)){toast('既に追加済みです');return;}
   const isFirst=cur.length===0||cur.every(x=>x.status==='done');
   cur.push({playerId:pid,status:isFirst?'active':'next'});
+  saveState();
   toast(`${players.find(p=>p.id===pid)?.name} を追加`);
   renderPitchList();
 }
@@ -924,6 +928,7 @@ function nextPitcher() {
   } else { const ni=cur.findIndex(x=>x.status==='next');
     if(ni!==-1)cur[ni].status='active'; else toast('投手を追加してください');
   }
+  saveState();
   renderPitchList();
 }
 
@@ -1017,6 +1022,7 @@ function confirmEditPlayer() {
     if(p){ p.name=name; p.kana=kana; p.num=num; p.team=editTeamSel; }
     toast(`${name} を更新しました`);
   }
+  saveState();
   closeEditModal();
   renderAll();
   renderSettingsPage();
@@ -1031,6 +1037,7 @@ function deletePlayer(id) {
   players=players.filter(x=>x.id!==id);
   // clean up field
   ['green','black'].forEach(t=>{ Object.keys(fieldAssign[t]).forEach(pos=>{ if(fieldAssign[t][pos]===id) fieldAssign[t][pos]=null; }); });
+  saveState();
   toast(`${p.name} を削除しました`);
   renderAll(); renderSettingsPage();
 }
@@ -1044,8 +1051,37 @@ function newGame() {
   subLog={green:[],black:[]}; pitchOrder={green:[],black:[]};
   subOutId=null; subInId=null; swapFirstId=null;
   document.getElementById('swap-hint').classList.remove('show');
+  saveState();
   renderAll(); renderSubPage(); renderPitchPage();
   toast('新ゲーム開始！');
+}
+
+// ═══════════════════════════════════════
+// SAVE / LOAD (localStorage)
+// ═══════════════════════════════════════
+const SAVE_KEY = 'baseball_mgr_v1';
+
+function saveState() {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      players, nextId, fieldAssign, pitchOrder, subLog, currentTeam
+    }));
+  } catch(e) { console.warn('save failed', e); }
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return false;
+    const d = JSON.parse(raw);
+    if (d.players)     players     = d.players;
+    if (d.nextId)      nextId      = d.nextId;
+    if (d.fieldAssign) fieldAssign = d.fieldAssign;
+    if (d.pitchOrder)  pitchOrder  = d.pitchOrder;
+    if (d.subLog)      subLog      = d.subLog;
+    if (d.currentTeam) currentTeam = d.currentTeam;
+    return true;
+  } catch(e) { console.warn('load failed', e); return false; }
 }
 
 // ═══════════════════════════════════════
@@ -1063,6 +1099,10 @@ document.fonts.ready.then(()=>{
   setTimeout(()=>{const s=document.getElementById('splash');if(s){s.classList.add('hide');setTimeout(()=>s.remove(),400);}},700);
 });
 
+// 保存データを読み込む
+const loaded = loadState();
+// チームUI反映
+switchTeam(currentTeam);
 renderAll();
 </script>
 </body>
