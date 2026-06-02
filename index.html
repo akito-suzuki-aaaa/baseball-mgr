@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>⚾ 野球メンバー管理</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="野球MGR">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#080f1a">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%23080f1a'/%3E%3Ctext x='90' y='115' text-anchor='middle' font-size='90' fill='%23f0a500'%3E⚾%3C/text%3E%3C/svg%3E">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Oswald:wght@400;600;700&display=swap');
+
+:root {
+  --bg:#080f1a; --s1:#0d1b2e; --s2:#132338; --s3:#1a2e47;
+  --border:#1e3550; --border2:#2a4a6e;
+  --gold:#f0a500; --gold2:#ffc83d;
+  --blue:#3da8ff; --green:#2ecc71; --red:#e74c3c;
+  --text:#e8f4ff; --text2:#7ca3c8; --text3:#4a7099;
+  /* team colors */
+  --team-green:#1a7a3a; --team-green2:#25a050; --team-green-bg:rgba(26,122,58,.15);
+  --team-black:#2a2a2a; --team-black2:#555;    --team-black-bg:rgba(80,80,80,.15);
+}
+
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+html,body{height:100%;overflow:hidden;}
+body{
+  font-family:'Noto Sans JP',sans-serif;
+  background:var(--bg); color:var(--text);
+  display:flex; flex-direction:column;
+  height:calc(var(--vh,1vh)*100);
+  padding-top:env(safe-area-inset-top);
+  padding-bottom:env(safe-area-inset-bottom);
+}
+
+/* ── SPLASH ── */
+#splash{
+  position:fixed;inset:0;z-index:99999;
+  background:#080f1a;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:14px;transition:opacity .4s;
+}
+#splash.hide{opacity:0;pointer-events:none;}
+#splash em{font-size:70px;font-style:normal;}
+#splash h1{font-family:'Oswald',sans-serif;font-size:26px;color:#f0a500;letter-spacing:4px;}
+#splash p{font-size:12px;color:#4a7099;}
+
+/* ── HEADER ── */
+.hdr{
+  background:linear-gradient(90deg,#080f1a,#0d1b2e);
+  border-bottom:2px solid var(--team-accent,var(--gold));
+  padding:7px 10px;
+  display:flex;align-items:center;gap:8px;flex-shrink:0;
+  transition:border-color .3s;
+}
+.hdr-logo{font-family:'Oswald',sans-serif;font-size:19px;color:var(--gold);letter-spacing:3px;}
+.hdr-sub{font-size:9px;color:var(--text3);}
+
+/* チーム切替ボタン */
+.team-switcher{
+  display:flex;gap:3px;
+  background:var(--s2);border:1px solid var(--border);border-radius:20px;padding:3px;
+}
+.team-btn{
+  padding:5px 11px;border-radius:16px;
+  font-size:11px;font-weight:700;font-family:'Noto Sans JP',sans-serif;
+  border:none;background:none;color:var(--text2);cursor:pointer;transition:all .2s;
+  white-space:nowrap;
+}
+.team-btn.on-green{background:var(--team-green2);color:#fff;}
+.team-btn.on-black{background:#666;color:#fff;}
+
+.tabs{
+  margin-left:auto;display:flex;gap:2px;
+  background:var(--s2);border:1px solid var(--border);border-radius:20px;padding:3px;
+}
+.tab{
+  padding:5px 10px;border-radius:16px;font-size:11px;font-weight:700;
+  font-family:'Noto Sans JP',sans-serif;border:none;background:none;
+  color:var(--text2);cursor:pointer;transition:all .2s;white-space:nowrap;
+}
+.tab.on{background:var(--gold);color:#000;}
+
+.newgame-btn{
+  background:none;border:1px solid var(--border2);color:var(--text3);
+  padding:4px 8px;border-radius:12px;font-size:10px;cursor:pointer;
+  font-family:'Noto Sans JP',sans-serif;
+}
+
+/* ── LAYOUT ── */
+.main{flex:1;overflow:hidden;display:flex;flex-direction:column;}
+.page{display:none;flex:1;overflow:hidden;}
+.page.on{display:flex;}
+
+/* ══════════════════════════════════════
+   PAGE: LINEUP + FIELD
+══════════════════════════════════════ */
+#pg-lineup{flex-direction:row;}
+
+.order-panel{width:50%;display:flex;flex-direction:column;border-right:1px solid var(--border);overflow:hidden;}
+.field-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+
+.panel-hdr{
+  background:var(--s2);border-bottom:1px solid var(--border);
+  padding:6px 10px;display:flex;align-items:center;gap:6px;flex-shrink:0;
+}
+.panel-title{font-family:'Oswald',sans-serif;font-size:13px;color:var(--gold);letter-spacing:1px;}
+.panel-hint{font-size:9px;color:var(--text3);margin-left:auto;}
+
+.order-list{flex:1;overflow-y:auto;padding:5px;}
+.order-list::-webkit-scrollbar{width:3px;}
+.order-list::-webkit-scrollbar-thumb{background:var(--border2);}
+
+/* Order row */
+.orow{
+  display:flex;align-items:center;gap:5px;
+  padding:6px 7px;background:var(--s1);border:1px solid var(--border);
+  border-radius:8px;margin-bottom:3px;position:relative;
+  user-select:none;-webkit-user-select:none;cursor:pointer;
+  transition:border-color .15s,background .15s,opacity .15s;
+}
+/* team tint on left edge */
+.orow.tgreen{border-left:3px solid var(--team-green2);}
+.orow.tblack{border-left:3px solid #666;}
+
+.orow.selected{border-color:var(--gold2);box-shadow:0 0 0 2px var(--gold2);background:rgba(255,200,61,.12);}
+.orow.swap-target{border-color:var(--blue);background:rgba(61,168,255,.08);}
+.orow.subbed-out{opacity:.38;pointer-events:none;border-color:var(--red);}
+.orow.bench{border-style:dashed;opacity:.72;}
+
+.onum{font-family:'Oswald',sans-serif;font-size:17px;color:var(--gold);width:18px;text-align:center;flex-shrink:0;}
+.onum.b{color:var(--text3);font-size:12px;}
+.oinfo{flex:1;min-width:0;}
+.oname{font-size:13px;font-weight:700;line-height:1.2;}
+.okana{font-size:9px;color:var(--text3);}
+.ojersey{font-family:'Oswald',sans-serif;font-size:16px;color:var(--blue);flex-shrink:0;width:24px;text-align:right;}
+
+.pos-chip{font-size:10px;font-weight:700;padding:2px 5px;border-radius:9px;flex-shrink:0;min-width:28px;text-align:center;}
+.pc-none{background:var(--border);color:var(--text3);}
+.pc-P{background:#c0392b;color:#fff;} .pc-C{background:#7d3c98;color:#fff;}
+.pc-1B{background:#1a5276;color:#fff;} .pc-2B{background:#0e6655;color:#fff;}
+.pc-3B{background:#1e8449;color:#fff;} .pc-SS{background:#2471a3;color:#fff;}
+.pc-LF{background:#6e2f1a;color:#fff;} .pc-CF{background:#117a65;color:#fff;}
+.pc-RF{background:#7b7d7d;color:#fff;} .pc-DH{background:#935116;color:#fff;}
+
+.subbed-badge{font-size:9px;background:var(--red);color:#fff;padding:1px 4px;border-radius:7px;font-weight:700;flex-shrink:0;}
+.team-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.team-dot.g{background:var(--team-green2);}
+.team-dot.b{background:#777;}
+
+.bench-divider{
+  text-align:center;font-size:9px;color:var(--text3);
+  padding:3px 0;letter-spacing:2px;
+  border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+  margin:3px 0;background:var(--bg);
+}
+
+.swap-hint{
+  display:none;position:sticky;bottom:0;
+  background:rgba(240,165,0,.18);border-top:1px solid var(--gold);
+  padding:5px 10px;font-size:11px;color:var(--gold2);font-weight:700;
+  text-align:center;z-index:10;
+}
+.swap-hint.show{display:flex;align-items:center;justify-content:center;gap:8px;}
+
+/* Field */
+.field-body{flex:1;position:relative;overflow:hidden;}
+.field-svg{position:absolute;inset:0;width:100%;height:100%;}
+.field-slots{position:absolute;inset:0;}
+.fslot{position:absolute;transform:translate(-50%,-50%);cursor:pointer;}
+.fslot-inner{
+  background:rgba(8,15,26,.9);border:1.5px solid var(--border2);
+  border-radius:7px;padding:3px 6px;text-align:center;
+  white-space:nowrap;transition:all .2s;min-width:56px;
+}
+.fslot-inner.has-player{border-color:var(--gold);}
+.fslot-inner.pressing{border-color:var(--blue);box-shadow:0 0 10px rgba(61,168,255,.5);transform:scale(1.06);}
+.fslot-pos{font-size:9px;color:var(--gold);font-weight:700;letter-spacing:1px;}
+.fslot-name{font-size:11px;font-weight:700;color:var(--text);}
+.fslot-empty{color:var(--text3);}
+.fslot-num{font-size:9px;color:var(--text2);}
+
+/* ══════════════════════════════════════
+   PAGE: PITCHER
+══════════════════════════════════════ */
+#pg-pitcher{flex-direction:column;overflow:hidden;}
+.pitcher-body{flex:1;overflow-y:auto;padding:10px;}
+.pitcher-body::-webkit-scrollbar{width:3px;}
+.pitch-row{
+  display:flex;align-items:center;gap:8px;padding:9px 12px;
+  background:var(--s1);border:1px solid var(--border);border-radius:10px;
+  margin-bottom:5px;cursor:grab;user-select:none;transition:all .15s;
+}
+.pitch-row.dragging{opacity:.3;} .pitch-row.drag-over{border-color:var(--gold);}
+.pitch-row.active-pit{border-color:var(--green);background:rgba(46,204,113,.1);}
+.pitch-row.done-pit{opacity:.4;}
+.pitch-seq{font-family:'Oswald',sans-serif;font-size:22px;color:var(--gold);width:22px;flex-shrink:0;}
+.pitch-info{flex:1;} .pitch-name{font-size:14px;font-weight:700;} .pitch-kana{font-size:10px;color:var(--text3);}
+.pitch-num{font-family:'Oswald',sans-serif;font-size:18px;color:var(--blue);}
+.pstat{font-size:11px;font-weight:700;padding:3px 8px;border-radius:10px;}
+.pstat-next{background:var(--s3);color:var(--text2);} .pstat-active{background:var(--green);color:#000;} .pstat-done{background:var(--border);color:var(--text3);}
+.btn-next-pit{width:100%;padding:13px;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#000;border:none;border-radius:10px;font-size:15px;font-weight:900;font-family:'Noto Sans JP',sans-serif;cursor:pointer;margin-bottom:12px;transition:all .2s;}
+.btn-next-pit:active{transform:scale(.97);}
+.pitch-add{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:10px;}
+.pitch-add-title{font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:700;}
+.pitch-add-row{display:flex;gap:6px;}
+select.pit-sel{flex:1;background:var(--s2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:8px 10px;font-family:'Noto Sans JP',sans-serif;font-size:13px;}
+.btn-add-pit{padding:8px 14px;background:var(--blue);color:#000;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
+
+/* ══════════════════════════════════════
+   PAGE: SUBSTITUTION
+══════════════════════════════════════ */
+#pg-sub{flex-direction:column;overflow:hidden;}
+.sub-body{flex:1;overflow-y:auto;padding:10px;}
+.sub-tap-ui{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:14px;}
+.sub-tap-title{font-family:'Oswald',sans-serif;font-size:14px;color:var(--gold);margin-bottom:10px;}
+.sub-slots{display:flex;gap:8px;margin-bottom:12px;}
+.sub-slot{
+  flex:1;background:var(--s2);border:1.5px dashed var(--border2);
+  border-radius:10px;padding:10px 8px;text-align:center;min-height:68px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  cursor:pointer;transition:all .2s;
+}
+.sub-slot.filled{border-style:solid;border-color:var(--gold);background:rgba(240,165,0,.08);}
+.sub-slot-label{font-size:10px;color:var(--text3);margin-bottom:4px;}
+.sub-slot-name{font-size:13px;font-weight:700;}
+.sub-slot-num{font-size:11px;color:var(--blue);}
+.sub-slot-empty{font-size:12px;color:var(--text3);}
+.sub-arrow-area{display:flex;align-items:center;justify-content:center;color:var(--red);font-size:22px;}
+.btn-exec-sub{width:100%;padding:12px;background:var(--red);color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:900;font-family:'Noto Sans JP',sans-serif;cursor:pointer;transition:all .2s;}
+.btn-exec-sub:active{transform:scale(.97);}
+.btn-exec-sub:disabled{opacity:.35;pointer-events:none;}
+.log-hdr{background:var(--s2);border:1px solid var(--border);border-radius:10px 10px 0 0;padding:7px 12px;font-family:'Oswald',sans-serif;font-size:13px;color:var(--gold);}
+.log-list{background:var(--s1);border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;}
+.log-item{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--border);font-size:12px;}
+.log-item:last-child{border-bottom:none;}
+.log-out{color:var(--text2);} .log-arrow{color:var(--red);font-size:14px;} .log-in{color:var(--blue);font-weight:700;}
+.log-pos{color:var(--gold);font-size:10px;margin-left:auto;}
+.log-empty{padding:14px;text-align:center;color:var(--text3);font-size:12px;}
+
+/* ══════════════════════════════════════
+   PAGE: SETTINGS (選手管理)
+══════════════════════════════════════ */
+#pg-settings{flex-direction:column;overflow:hidden;}
+.settings-body{flex:1;overflow-y:auto;padding:10px;}
+.settings-body::-webkit-scrollbar{width:3px;}
+
+.settings-section{margin-bottom:16px;}
+.settings-section-title{
+  font-family:'Oswald',sans-serif;font-size:13px;color:var(--gold);
+  padding:6px 10px;background:var(--s2);border:1px solid var(--border);
+  border-radius:8px 8px 0 0;letter-spacing:1px;display:flex;align-items:center;gap:8px;
+}
+.settings-list{background:var(--s1);border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;}
+
+.player-edit-row{
+  display:flex;align-items:center;gap:6px;
+  padding:8px 10px;border-bottom:1px solid var(--border);
+  font-size:12px;
+}
+.player-edit-row:last-child{border-bottom:none;}
+.per-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.per-dot.g{background:var(--team-green2);}
+.per-dot.b{background:#777;}
+.per-name{flex:1;font-size:13px;font-weight:700;}
+.per-kana{font-size:10px;color:var(--text3);}
+.per-num{font-family:'Oswald',sans-serif;font-size:15px;color:var(--blue);min-width:24px;text-align:right;}
+.btn-edit-p{
+  padding:4px 10px;background:var(--s3);border:1px solid var(--border2);
+  color:var(--text2);border-radius:8px;font-size:11px;cursor:pointer;
+  font-family:'Noto Sans JP',sans-serif;transition:all .15s;flex-shrink:0;
+}
+.btn-edit-p:active{background:var(--s2);}
+.btn-del-p{
+  padding:4px 8px;background:rgba(231,76,60,.15);border:1px solid var(--red);
+  color:var(--red);border-radius:8px;font-size:11px;cursor:pointer;
+  font-family:'Noto Sans JP',sans-serif;flex-shrink:0;
+}
+
+.btn-add-player{
+  width:100%;padding:11px;
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  color:#000;border:none;border-radius:9px;
+  font-size:14px;font-weight:900;font-family:'Noto Sans JP',sans-serif;
+  cursor:pointer;margin-bottom:14px;transition:all .2s;
+}
+.btn-add-player:active{transform:scale(.97);}
+
+/* team filter tabs in settings */
+.filter-tabs{display:flex;gap:4px;margin-bottom:10px;}
+.filter-tab{
+  flex:1;padding:7px;border-radius:8px;border:1px solid var(--border);
+  background:var(--s2);color:var(--text2);font-size:12px;font-weight:700;
+  cursor:pointer;text-align:center;transition:all .2s;font-family:'Noto Sans JP',sans-serif;
+}
+.filter-tab.on-all{background:var(--gold);color:#000;border-color:var(--gold);}
+.filter-tab.on-green{background:var(--team-green2);color:#fff;border-color:var(--team-green2);}
+.filter-tab.on-black{background:#666;color:#fff;border-color:#666;}
+
+/* ══════════════════════════════════════
+   BOTTOM SHEET (picker)
+══════════════════════════════════════ */
+.picker-sheet{position:fixed;inset:0;z-index:400;display:none;flex-direction:column;background:rgba(0,0,0,.55);}
+.picker-sheet.open{display:flex;}
+.picker-inner{margin-top:auto;background:var(--s1);border-top:2px solid var(--gold);border-radius:18px 18px 0 0;max-height:70vh;display:flex;flex-direction:column;}
+.picker-hdr{padding:12px 16px 8px;display:flex;align-items:center;border-bottom:1px solid var(--border);flex-shrink:0;}
+.picker-title{font-family:'Oswald',sans-serif;font-size:14px;color:var(--gold);flex:1;letter-spacing:1px;}
+.picker-close{background:none;border:1px solid var(--border2);color:var(--text2);padding:4px 10px;border-radius:12px;font-size:12px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
+.picker-list{overflow-y:auto;padding:8px;}
+.picker-list::-webkit-scrollbar{width:3px;}
+.pitem{display:flex;align-items:center;gap:8px;padding:9px 10px;background:var(--s2);border:1px solid var(--border);border-radius:8px;margin-bottom:4px;cursor:pointer;transition:all .15s;}
+.pitem:active{background:rgba(240,165,0,.15);border-color:var(--gold);}
+.pitem-info{flex:1;} .pitem-name{font-size:13px;font-weight:700;} .pitem-kana{font-size:9px;color:var(--text3);}
+.pitem-num{font-family:'Oswald',sans-serif;font-size:17px;color:var(--blue);}
+.pitem-pos{font-size:10px;font-weight:700;padding:2px 5px;border-radius:8px;}
+
+/* ══════════════════════════════════════
+   MODALS
+══════════════════════════════════════ */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;align-items:center;justify-content:center;}
+.modal-bg.open{display:flex;}
+
+.modal-box{background:var(--s1);border:1.5px solid var(--gold);border-radius:16px;padding:16px;width:88%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.6);}
+.mbox-title{font-family:'Oswald',sans-serif;font-size:15px;color:var(--gold);margin-bottom:12px;}
+.pos-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px;}
+.pg-btn{padding:9px 4px;border-radius:7px;border:1px solid var(--border);background:var(--s2);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;text-align:center;transition:all .15s;font-family:'Noto Sans JP',sans-serif;line-height:1.3;}
+.pg-btn.sel{background:var(--gold);color:#000;border-color:var(--gold);}
+.pg-btn small{font-size:8px;font-weight:400;display:block;}
+
+/* Player edit modal */
+.edit-modal-box{background:var(--s1);border:1.5px solid var(--blue);border-radius:16px;padding:16px;width:88%;max-width:380px;}
+.edit-modal-title{font-family:'Oswald',sans-serif;font-size:15px;color:var(--blue);margin-bottom:14px;}
+.edit-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.edit-label{font-size:11px;color:var(--text2);font-weight:700;min-width:52px;flex-shrink:0;}
+.edit-input{
+  flex:1;background:var(--s2);border:1px solid var(--border);color:var(--text);
+  border-radius:7px;padding:9px 10px;font-family:'Noto Sans JP',sans-serif;font-size:14px;
+}
+.edit-input:focus{outline:none;border-color:var(--blue);}
+.team-radio{display:flex;gap:6px;flex:1;}
+.team-radio-btn{
+  flex:1;padding:8px;border-radius:8px;border:1.5px solid var(--border);
+  background:var(--s2);color:var(--text2);font-size:12px;font-weight:700;
+  cursor:pointer;text-align:center;transition:all .2s;font-family:'Noto Sans JP',sans-serif;
+}
+.team-radio-btn.on-green{background:var(--team-green2);color:#fff;border-color:var(--team-green2);}
+.team-radio-btn.on-black{background:#666;color:#fff;border-color:#666;}
+
+.mbox-btns{display:flex;gap:8px;}
+.btn-cancel{flex:1;padding:9px;border-radius:8px;background:var(--s2);color:var(--text2);border:1px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
+.btn-ok{flex:1;padding:9px;border-radius:8px;background:var(--gold);color:#000;border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
+.btn-ok-blue{flex:1;padding:9px;border-radius:8px;background:var(--blue);color:#000;border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
+
+/* Field assign modal */
+.fa-modal-box{background:var(--s1);border:1.5px solid var(--blue);border-radius:16px;padding:16px;width:88%;max-width:320px;}
+.fa-title{font-family:'Oswald',sans-serif;font-size:14px;color:var(--blue);margin-bottom:10px;}
+.fa-sel{width:100%;background:var(--s2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px;font-family:'Noto Sans JP',sans-serif;font-size:13px;margin-bottom:12px;}
+
+@keyframes pressRing{from{opacity:.6;transform:translate(-50%,-50%) scale(.5)}to{opacity:0;transform:translate(-50%,-50%) scale(1.8)}}
+.press-ring{position:fixed;width:50px;height:50px;border:2px solid var(--blue);border-radius:50%;pointer-events:none;animation:pressRing .5s ease-out forwards;z-index:9998;}
+
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--s2);border:1px solid var(--gold);color:var(--text);padding:8px 16px;border-radius:18px;font-size:12px;font-weight:700;opacity:0;transition:opacity .25s;z-index:9999;pointer-events:none;white-space:nowrap;}
+.toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<div id="splash"><em>⚾</em><h1>BASEBALL MGR</h1><p>野球メンバー管理</p></div>
+
+<!-- HEADER -->
+<div class="hdr" id="hdr">
+  <div><div class="hdr-logo">⚾ BASEBALL MGR</div><div class="hdr-sub" id="hdr-sub">タップ:入替 / 長押し:守備</div></div>
+  <div class="team-switcher">
+    <button class="team-btn on-green" id="tbtn-green" onclick="switchTeam('green')">🟢 GREEN</button>
+    <button class="team-btn" id="tbtn-black" onclick="switchTeam('black')">⚫ BLACK</button>
+  </div>
+  <div class="tabs">
+    <button class="tab on"  onclick="goTab('lineup',this)">オーダー</button>
+    <button class="tab"     onclick="goTab('pitcher',this)">投手</button>
+    <button class="tab"     onclick="goTab('sub',this)">交代</button>
+    <button class="tab"     onclick="goTab('settings',this)">選手</button>
+  </div>
+  <button class="newgame-btn" onclick="newGame()">🔄 新ゲーム</button>
+</div>
+
+<div class="main">
+
+  <!-- LINEUP + FIELD -->
+  <div id="pg-lineup" class="page on">
+    <div class="order-panel">
+      <div class="panel-hdr">
+        <span class="panel-title" id="lineup-panel-title">📋 打順</span>
+        <span class="panel-hint">タップ2回で入替</span>
+      </div>
+      <div class="order-list" id="order-list"></div>
+      <div class="swap-hint" id="swap-hint">
+        👆 入替たい選手をタップ
+        <button onclick="cancelSwap()" style="background:none;border:1px solid var(--gold);color:var(--gold);padding:2px 8px;border-radius:8px;font-size:11px;cursor:pointer;font-family:inherit;">キャンセル</button>
+      </div>
+    </div>
+    <div class="field-panel">
+      <div class="panel-hdr"><span class="panel-title">🏟 守備</span><span class="panel-hint">長押しで変更</span></div>
+      <div class="field-body">
+        <svg class="field-svg" viewBox="0 0 300 280" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+          <rect width="300" height="280" fill="#080f1a"/>
+          <ellipse cx="150" cy="155" rx="148" ry="130" fill="#1a3d1a"/>
+          <path d="M150,240 L55,155 L150,70 L245,155 Z" fill="#3e2723"/>
+          <path d="M150,230 L65,155 L150,80 L235,155 Z" fill="#1e4d1e"/>
+          <path d="M150,210 L85,155 L150,100 L215,155 Z" fill="#4e342e"/>
+          <ellipse cx="150" cy="220" rx="14" ry="8" fill="#3e2723"/>
+          <ellipse cx="150" cy="150" rx="10" ry="7" fill="#4e342e"/>
+          <rect x="144" y="214" width="12" height="12" rx="2" fill="#f5deb3" transform="rotate(45 150 220)"/>
+          <rect x="79"  y="149" width="12" height="12" rx="2" fill="#f5deb3" transform="rotate(45 85 155)"/>
+          <rect x="144" y="94"  width="12" height="12" rx="2" fill="#f5deb3" transform="rotate(45 150 100)"/>
+          <rect x="209" y="149" width="12" height="12" rx="2" fill="#f5deb3" transform="rotate(45 215 155)"/>
+          <line x1="150" y1="220" x2="10"  y2="80" stroke="#fff" stroke-width="1" stroke-dasharray="3,3" opacity=".3"/>
+          <line x1="150" y1="220" x2="290" y2="80" stroke="#fff" stroke-width="1" stroke-dasharray="3,3" opacity=".3"/>
+          <text x="150" y="157" text-anchor="middle" fill="#5a4a2a" font-size="8">投</text>
+        </svg>
+        <div class="field-slots" id="field-slots"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PITCHER -->
+  <div id="pg-pitcher" class="page">
+    <div class="panel-hdr"><span class="panel-title">⚾ 投手リレー</span></div>
+    <div class="pitcher-body">
+      <button class="btn-next-pit" onclick="nextPitcher()">▶ 次の投手へ交代</button>
+      <div id="pitch-order-list" style="margin-bottom:12px;"></div>
+      <div class="pitch-add">
+        <div class="pitch-add-title">投手を追加（<span id="pitch-team-label">現在のチーム</span>）</div>
+        <div class="pitch-add-row">
+          <select class="pit-sel" id="pit-add-sel"></select>
+          <button class="btn-add-pit" onclick="addToPitchOrder()">追加</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUB -->
+  <div id="pg-sub" class="page">
+    <div class="sub-body">
+      <div class="sub-tap-ui">
+        <div class="sub-tap-title">🔄 選手交代</div>
+        <div class="sub-slots">
+          <div class="sub-slot" id="slot-out" onclick="openPicker('out')">
+            <div class="sub-slot-label">⬅ 退く選手</div>
+            <div id="slot-out-txt"><div class="sub-slot-empty">タップで選択</div></div>
+          </div>
+          <div class="sub-arrow-area">→</div>
+          <div class="sub-slot" id="slot-in" onclick="openPicker('in')">
+            <div class="sub-slot-label">➡ 入る選手</div>
+            <div id="slot-in-txt"><div class="sub-slot-empty">タップで選択</div></div>
+          </div>
+        </div>
+        <button class="btn-exec-sub" id="exec-sub-btn" onclick="doSub()" disabled>✅ 交代実行</button>
+      </div>
+      <div class="log-hdr">📝 交代履歴</div>
+      <div class="log-list" id="log-list"><div class="log-empty">まだ交代はありません</div></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="pg-settings" class="page">
+    <div class="panel-hdr"><span class="panel-title">👤 選手管理</span></div>
+    <div class="settings-body">
+      <button class="btn-add-player" onclick="openEditModal(null)">＋ 新しい選手を追加</button>
+      <div class="filter-tabs">
+        <button class="filter-tab on-all" onclick="setSettingsFilter('all',this)">全員</button>
+        <button class="filter-tab" onclick="setSettingsFilter('green',this)">🟢 GREEN</button>
+        <button class="filter-tab" onclick="setSettingsFilter('black',this)">⚫ BLACK</button>
+      </div>
+      <div id="settings-player-list"></div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- Player picker sheet -->
+<div class="picker-sheet" id="picker-sheet" onclick="pickerBgTap(event)">
+  <div class="picker-inner" id="picker-inner">
+    <div class="picker-hdr">
+      <span class="picker-title" id="picker-title">選手を選択</span>
+      <button class="picker-close" onclick="closePicker()">閉じる</button>
+    </div>
+    <div class="picker-list" id="picker-list"></div>
+  </div>
+</div>
+
+<!-- Pos modal -->
+<div class="modal-bg" id="pos-modal">
+  <div class="modal-box">
+    <div class="mbox-title" id="pos-modal-title">ポジション</div>
+    <div class="pos-grid" id="pos-grid"></div>
+    <div class="mbox-btns">
+      <button class="btn-cancel" onclick="closePosModal()">キャンセル</button>
+      <button class="btn-ok" onclick="confirmPos()">決定</button>
+    </div>
+  </div>
+</div>
+
+<!-- Field assign modal -->
+<div class="modal-bg" id="fa-modal">
+  <div class="fa-modal-box">
+    <div class="fa-title" id="fa-title">守備配置</div>
+    <select class="fa-sel" id="fa-sel"></select>
+    <div class="mbox-btns">
+      <button class="btn-cancel" onclick="closeFaModal()">キャンセル</button>
+      <button class="btn-ok" onclick="confirmFa()">配置</button>
+    </div>
+  </div>
+</div>
+
+<!-- Player edit modal -->
+<div class="modal-bg" id="edit-modal">
+  <div class="edit-modal-box">
+    <div class="edit-modal-title" id="edit-modal-title">選手を追加</div>
+    <div class="edit-row">
+      <span class="edit-label">名前</span>
+      <input class="edit-input" id="edit-name" placeholder="山田 太郎" type="text">
+    </div>
+    <div class="edit-row">
+      <span class="edit-label">よみ</span>
+      <input class="edit-input" id="edit-kana" placeholder="やまだ たろう" type="text">
+    </div>
+    <div class="edit-row">
+      <span class="edit-label">背番号</span>
+      <input class="edit-input" id="edit-num" placeholder="10" type="number" min="0" max="99" style="width:70px;flex:none;">
+    </div>
+    <div class="edit-row">
+      <span class="edit-label">チーム</span>
+      <div class="team-radio">
+        <button class="team-radio-btn on-green" id="eteam-green" onclick="setEditTeam('green')">🟢 GREEN</button>
+        <button class="team-radio-btn" id="eteam-black" onclick="setEditTeam('black')">⚫ BLACK</button>
+      </div>
+    </div>
+    <div class="mbox-btns" style="margin-top:4px;">
+      <button class="btn-cancel" onclick="closeEditModal()">キャンセル</button>
+      <button class="btn-ok-blue" onclick="confirmEditPlayer()">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════
+const POS_LIST = ['P','C','1B','2B','3B','SS','LF','CF','RF','DH','―'];
+const POS_JP   = {P:'投手',C:'捕手','1B':'一塁','2B':'二塁','3B':'三塁',SS:'遊撃',LF:'左翼',CF:'中堅',RF:'右翼',DH:'DH','―':'未定'};
+const FIELD_POS = {
+  P:{x:50,y:55}, C:{x:50,y:80}, '1B':{x:74,y:57},
+  '2B':{x:63,y:40}, '3B':{x:27,y:57}, SS:{x:37,y:40},
+  LF:{x:16,y:25}, CF:{x:50,y:12}, RF:{x:84,y:25}
+};
+
+// チーム: 'green' | 'black'
+let currentTeam = 'green';
+
+let nextId = 20;
+// 各選手に team:'green'|'black' を追加
+let players = [
+  {id:1,  name:'加藤 琥翔', kana:'かとう くうと',   num:90, pos:'―', order:1,  inStamen:true,  subbedOut:false, team:'green'},
+  {id:2,  name:'北野 絵翔', kana:'きたの かいと',   num:68, pos:'―', order:2,  inStamen:true,  subbedOut:false, team:'green'},
+  {id:3,  name:'青柳 匠真', kana:'あおやぎ たくま', num:31, pos:'―', order:3,  inStamen:true,  subbedOut:false, team:'green'},
+  {id:4,  name:'稲田 雄心', kana:'いなだ ゆうしん', num:48, pos:'―', order:4,  inStamen:true,  subbedOut:false, team:'green'},
+  {id:5,  name:'田嶋 陽樹', kana:'たじま はるき',   num:95, pos:'―', order:5,  inStamen:true,  subbedOut:false, team:'green'},
+  {id:6,  name:'平岡 流安', kana:'ひらおか るあん', num:73, pos:'―', order:6,  inStamen:true,  subbedOut:false, team:'green'},
+  {id:7,  name:'鎌田 悠誠', kana:'かまた ゆうせい', num:53, pos:'―', order:7,  inStamen:true,  subbedOut:false, team:'green'},
+  {id:8,  name:'溝渕 遥輝', kana:'みぞぶち はるき', num:81, pos:'―', order:8,  inStamen:true,  subbedOut:false, team:'green'},
+  {id:9,  name:'鈴木 歩',   kana:'すずき あゆむ',  num:46, pos:'―', order:9,  inStamen:true,  subbedOut:false, team:'green'},
+  {id:10, name:'酒井 勝',   kana:'さかい まさる',  num:36, pos:'―', order:null,inStamen:false, subbedOut:false, team:'green'},
+  {id:11, name:'清岡 迅八', kana:'きよおか じんぱ', num:70, pos:'―', order:null,inStamen:false, subbedOut:false, team:'green'},
+  {id:12, name:'篠部 大和', kana:'さなべ やまと',  num:42, pos:'―', order:null,inStamen:false, subbedOut:false, team:'green'},
+  {id:13, name:'松本 蒼央', kana:'まつもと あお',  num:56, pos:'―', order:null,inStamen:false, subbedOut:false, team:'black'},
+  {id:14, name:'井上 榮悟', kana:'いのうえ えいご', num:69, pos:'―', order:null,inStamen:false, subbedOut:false, team:'black'},
+  {id:15, name:'斎藤 歩',   kana:'さいとう あゆむ',num:null,pos:'―',order:null,inStamen:false, subbedOut:false, team:'black'},
+  {id:16, name:'大川 瑛',   kana:'おおかわ えいと',num:35, pos:'―', order:null,inStamen:false, subbedOut:false, team:'black'},
+  {id:17, name:'森下 蒼大', kana:'もりした そうた', num:82, pos:'―', order:null,inStamen:false, subbedOut:false, team:'black'},
+  {id:18, name:'得能 奏通', kana:'とくのう かなと', num:23, pos:'―', order:null,inStamen:false, subbedOut:false, team:'black'},
+  {id:19, name:'大西 汰央', kana:'おおにし たお',  num:27, pos:'―', order:null,inStamen:false, subbedOut:false, team:'black'},
+];
+
+// チーム別 field/pitch 管理
+let fieldAssign = { green:{P:null,C:null,'1B':null,'2B':null,'3B':null,SS:null,LF:null,CF:null,RF:null},
+                    black:{P:null,C:null,'1B':null,'2B':null,'3B':null,SS:null,LF:null,CF:null,RF:null} };
+let pitchOrder  = { green:[], black:[] };
+let subLog      = { green:[], black:[] };
+
+// ── swap / picker / modal state ──
+let swapFirstId  = null;
+let pickerMode   = null;
+let subOutId     = null;
+let subInId      = null;
+let posModalPid  = null;
+let posModalSel  = null;
+let faModalPos   = null;
+let editModalId  = null;  // null=new, number=edit
+let editTeamSel  = 'green';
+let settingsFilter = 'all';
+let pitchDragIdx = null;
+
+// ── shorthand helpers ──
+const teamPlayers = (t) => players.filter(p=>p.team===t);
+const fa  = () => fieldAssign[currentTeam];
+const po  = () => pitchOrder[currentTeam];
+const sl  = () => subLog[currentTeam];
+
+// ═══════════════════════════════════════
+// TEAM SWITCH
+// ═══════════════════════════════════════
+function switchTeam(t) {
+  currentTeam = t;
+  cancelSwap();
+  subOutId = null; subInId = null;
+  document.getElementById('tbtn-green').className = 'team-btn' + (t==='green' ? ' on-green' : '');
+  document.getElementById('tbtn-black').className = 'team-btn' + (t==='black' ? ' on-black' : '');
+  document.getElementById('hdr').style.borderBottomColor = t==='green' ? 'var(--team-green2)' : '#666';
+  document.getElementById('lineup-panel-title').textContent = '📋 ' + (t==='green' ? '🟢 GREEN' : '⚫ BLACK') + ' 打順';
+  renderAll();
+  renderSubPage();
+  renderPitchPage();
+}
+
+// ═══════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════
+function goTab(name, btn) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.getElementById('pg-'+name).classList.add('on');
+  btn.classList.add('on');
+  if (name==='sub')      renderSubPage();
+  if (name==='pitcher')  renderPitchPage();
+  if (name==='settings') renderSettingsPage();
+}
+
+// ═══════════════════════════════════════
+// RENDER ALL
+// ═══════════════════════════════════════
+function renderAll() { renderOrderList(); renderFieldSlots(); }
+
+// ═══════════════════════════════════════
+// ORDER LIST
+// ═══════════════════════════════════════
+function renderOrderList() {
+  const mine   = players.filter(p=>p.team===currentTeam);
+  const stamen = mine.filter(p=>p.inStamen).sort((a,b)=>a.order-b.order);
+  const bench  = mine.filter(p=>!p.inStamen);
+  const el = document.getElementById('order-list');
+  let html = stamen.map(p=>orowHTML(p,true)).join('');
+  html += `<div class="bench-divider">── ベンチ ──</div>`;
+  html += bench.map(p=>orowHTML(p,false)).join('');
+  el.innerHTML = html;
+  el.querySelectorAll('.orow').forEach(row=>attachRowInteraction(row,+row.dataset.id));
+}
+
+function orowHTML(p, isStamen) {
+  const numStr  = p.num ?? '—';
+  const posCls  = 'pc-'+(p.pos==='―'?'none':p.pos);
+  const posLbl  = p.pos==='―' ? '?' : p.pos;
+  const selCls  = swapFirstId===p.id ? ' selected' : '';
+  const subCls  = p.subbedOut ? ' subbed-out' : (!isStamen ? ' bench' : '');
+  const swpCls  = swapFirstId && swapFirstId!==p.id && !p.subbedOut ? ' swap-target' : '';
+  const tCls    = currentTeam==='green' ? ' tgreen' : ' tblack';
+  return `<div class="orow${selCls}${subCls}${swpCls}${tCls}" data-id="${p.id}">
+    ${isStamen?`<span class="onum">${p.order}</span>`:`<span class="onum b">B</span>`}
+    <div class="oinfo"><div class="oname">${p.name}</div><div class="okana">${p.kana}</div></div>
+    <span class="pos-chip ${posCls}">${posLbl}</span>
+    <span class="ojersey">${numStr}</span>
+    ${p.subbedOut?'<span class="subbed-badge">交代済</span>':''}
+  </div>`;
+}
+
+function attachRowInteraction(row, id) {
+  let pressTimer=null, didLong=false;
+  const start=()=>{ didLong=false; pressTimer=setTimeout(()=>{ didLong=true; openPosModal(id); },500); };
+  const end=()=>clearTimeout(pressTimer);
+  const tap=()=>{ if(didLong)return;
+    const p=players.find(x=>x.id===id);
+    if(!p||p.subbedOut)return;
+    if(swapFirstId===null){ swapFirstId=id; document.getElementById('swap-hint').classList.add('show'); renderOrderList(); }
+    else if(swapFirstId===id){ cancelSwap(); }
+    else{ doSwap(swapFirstId,id); }
+  };
+  row.addEventListener('touchstart',start,{passive:true});
+  row.addEventListener('touchend',end,{passive:true});
+  row.addEventListener('mousedown',start);
+  row.addEventListener('mouseup',end);
+  row.addEventListener('click',tap);
+}
+
+function cancelSwap(){ swapFirstId=null; document.getElementById('swap-hint').classList.remove('show'); renderOrderList(); }
+
+function doSwap(idA, idB) {
+  const a=players.find(p=>p.id===idA), b=players.find(p=>p.id===idB);
+  if(!a||!b)return;
+  if(a.inStamen&&b.inStamen){ [a.order,b.order]=[b.order,a.order]; toast(`${a.name} ↔ ${b.name}`); }
+  else{
+    const s=a.inStamen?a:b, bn=a.inStamen?b:a;
+    const ord=s.order; s.inStamen=false; s.order=null; bn.inStamen=true; bn.order=ord;
+    toast(`${bn.name} をスタメンへ`);
+  }
+  swapFirstId=null; document.getElementById('swap-hint').classList.remove('show');
+  renderAll();
+}
+
+// ═══════════════════════════════════════
+// FIELD SLOTS
+// ═══════════════════════════════════════
+function renderFieldSlots() {
+  const container=document.getElementById('field-slots');
+  container.innerHTML=Object.entries(FIELD_POS).map(([pos,coord])=>{
+    const pid=fa()[pos], p=pid?players.find(x=>x.id===pid):null;
+    const hasP=!!p, shortName=p?(p.name.split(' ')[1]||p.name):'';
+    return `<div class="fslot" style="left:${coord.x}%;top:${coord.y}%;" data-pos="${pos}">
+      <div class="fslot-inner ${hasP?'has-player':''}" id="fsi-${pos}">
+        <div class="fslot-pos">${pos}</div>
+        ${hasP?`<div class="fslot-name">${shortName}</div><div class="fslot-num">#${p.num??'—'}</div>`
+               :`<div class="fslot-name fslot-empty">未定</div>`}
+      </div>
+    </div>`;
+  }).join('');
+  container.querySelectorAll('.fslot').forEach(slot=>attachFieldLongPress(slot,slot.dataset.pos));
+}
+
+function attachFieldLongPress(slot, pos) {
+  const inner=slot.querySelector('.fslot-inner');
+  let timer=null, didLong=false;
+  const start=(e)=>{ didLong=false; inner.classList.add('pressing');
+    timer=setTimeout(()=>{ didLong=true; inner.classList.remove('pressing');
+      const rect=inner.getBoundingClientRect();
+      const ring=document.createElement('div'); ring.className='press-ring';
+      ring.style.left=(rect.left+rect.width/2)+'px'; ring.style.top=(rect.top+rect.height/2)+'px';
+      document.body.appendChild(ring); setTimeout(()=>ring.remove(),500);
+      openFaModal(pos);
+    },500);
+  };
+  const end=()=>{ clearTimeout(timer); inner.classList.remove('pressing'); };
+  slot.addEventListener('touchstart',start,{passive:true});
+  slot.addEventListener('touchend',end,{passive:true});
+  slot.addEventListener('touchcancel',end,{passive:true});
+  slot.addEventListener('mousedown',start);
+  slot.addEventListener('mouseup',end);
+  slot.addEventListener('mouseleave',end);
+}
+
+// ═══════════════════════════════════════
+// POS MODAL (long-press on row)
+// ═══════════════════════════════════════
+function openPosModal(pid) {
+  const p=players.find(x=>x.id===pid); posModalPid=pid; posModalSel=p.pos;
+  document.getElementById('pos-modal-title').textContent=`${p.name}　#${p.num??'—'}`;
+  document.getElementById('pos-grid').innerHTML=POS_LIST.map(pos=>
+    `<button class="pg-btn ${pos===posModalSel?'sel':''}" onclick="selPos('${pos}')">${pos}<small>${POS_JP[pos]??''}</small></button>`
+  ).join('');
+  document.getElementById('pos-modal').classList.add('open');
+}
+function selPos(pos){ posModalSel=pos; document.querySelectorAll('#pos-grid .pg-btn').forEach(b=>b.classList.toggle('sel',b.textContent.trim().startsWith(pos))); }
+function confirmPos() {
+  const p=players.find(x=>x.id===posModalPid); if(!p)return;
+  p.pos=posModalSel;
+  if(posModalSel!=='―'&&posModalSel!=='DH'){
+    Object.keys(fa()).forEach(k=>{if(fa()[k]===p.id)fa()[k]=null;});
+    fa()[posModalSel]=p.id;
+  }
+  closePosModal(); toast(`${p.name} → ${posModalSel}`); renderAll();
+}
+function closePosModal(){ document.getElementById('pos-modal').classList.remove('open'); }
+
+// ═══════════════════════════════════════
+// FIELD ASSIGN MODAL
+// ═══════════════════════════════════════
+function openFaModal(pos) {
+  faModalPos=pos;
+  document.getElementById('fa-title').textContent=`${pos}（${POS_JP[pos]}）に配置`;
+  const mine=players.filter(p=>p.team===currentTeam);
+  document.getElementById('fa-sel').innerHTML=`<option value="">（未配置）</option>`+
+    mine.map(p=>`<option value="${p.id}" ${fa()[pos]===p.id?'selected':''}>${p.name} #${p.num??'—'}</option>`).join('');
+  document.getElementById('fa-modal').classList.add('open');
+}
+function closeFaModal(){ document.getElementById('fa-modal').classList.remove('open'); }
+function confirmFa() {
+  const val=document.getElementById('fa-sel').value, pid=val?+val:null;
+  if(pid) Object.keys(fa()).forEach(k=>{if(fa()[k]===pid)fa()[k]=null;});
+  fa()[faModalPos]=pid;
+  if(pid){const p=players.find(x=>x.id===pid);if(p)p.pos=faModalPos;}
+  closeFaModal(); toast(pid?`${players.find(x=>x.id===pid)?.name} → ${faModalPos}`:`${faModalPos} クリア`); renderAll();
+}
+
+// ═══════════════════════════════════════
+// SUBSTITUTION
+// ═══════════════════════════════════════
+function renderSubPage() {
+  updateSubSlotDisplay('out', subOutId);
+  updateSubSlotDisplay('in',  subInId);
+  updateExecBtn(); renderSubLog();
+}
+
+function openPicker(mode) {
+  pickerMode=mode;
+  document.getElementById('picker-title').textContent=mode==='out'?'退く選手':'入る選手（ベンチ）';
+  const list=document.getElementById('picker-list');
+  const mine=players.filter(p=>p.team===currentTeam);
+  const pool=mode==='out'
+    ? mine.filter(p=>p.inStamen&&!p.subbedOut)
+    : mine.filter(p=>!p.inStamen&&!p.subbedOut);
+  if(!pool.length){
+    list.innerHTML='<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px;">対象選手がいません</div>';
+  } else {
+    list.innerHTML=pool.map(p=>{
+      const pc='pc-'+(p.pos==='―'?'none':p.pos);
+      const pre=mode==='out'&&p.inStamen?`${p.order}番 `:'';
+      return `<div class="pitem" onclick="pickPlayer(${p.id})">
+        <div class="pitem-info"><div class="pitem-name">${pre}${p.name}</div><div class="pitem-kana">${p.kana}</div></div>
+        <span class="pitem-pos ${pc}">${p.pos==='―'?'?':p.pos}</span>
+        <span class="pitem-num">${p.num??'—'}</span>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('picker-sheet').classList.add('open');
+}
+
+function pickPlayer(pid) {
+  if(pickerMode==='out') subOutId=pid; else subInId=pid;
+  updateSubSlotDisplay(pickerMode,pid); updateExecBtn(); closePicker();
+}
+
+function updateSubSlotDisplay(mode, pid) {
+  const slotEl=document.getElementById('slot-'+mode);
+  const txtEl=document.getElementById('slot-'+mode+'-txt');
+  if(!pid){ slotEl.classList.remove('filled'); txtEl.innerHTML='<div class="sub-slot-empty">タップで選択</div>'; return; }
+  const p=players.find(x=>x.id===pid);
+  slotEl.classList.add('filled');
+  txtEl.innerHTML=`<div class="sub-slot-name">${p.name}</div><div class="sub-slot-num">#${p.num??'—'}</div>`;
+}
+
+function updateExecBtn(){ document.getElementById('exec-sub-btn').disabled=!(subOutId&&subInId); }
+function closePicker(){ document.getElementById('picker-sheet').classList.remove('open'); }
+function pickerBgTap(e){ if(e.target===document.getElementById('picker-sheet'))closePicker(); }
+
+function doSub() {
+  if(!subOutId||!subInId)return;
+  const outP=players.find(p=>p.id===subOutId), inP=players.find(p=>p.id===subInId);
+  if(!outP||!inP)return;
+  inP.inStamen=true; inP.order=outP.order; inP.pos=outP.pos; inP.subbedOut=false;
+  outP.inStamen=false; outP.order=null; outP.subbedOut=true;
+  Object.keys(fa()).forEach(pos=>{ if(fa()[pos]===subOutId) fa()[pos]=subInId; });
+  sl().unshift({outName:outP.name,inName:inP.name,pos:inP.pos,time:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})});
+  toast(`${outP.name} → ${inP.name} 交代完了`);
+  subOutId=null; subInId=null;
+  renderAll(); renderSubPage();
+}
+
+function renderSubLog() {
+  const el=document.getElementById('log-list');
+  const log=sl();
+  if(!log.length){el.innerHTML='<div class="log-empty">まだ交代はありません</div>';return;}
+  el.innerHTML=log.map(s=>`<div class="log-item">
+    <span class="log-out">${s.outName}</span><span class="log-arrow">→</span>
+    <span class="log-in">${s.inName}</span>
+    <span class="log-pos">${s.pos!=='―'?s.pos:''} ${s.time}</span>
+  </div>`).join('');
+}
+
+// ═══════════════════════════════════════
+// PITCHER
+// ═══════════════════════════════════════
+function renderPitchPage() {
+  document.getElementById('pitch-team-label').textContent = currentTeam==='green'?'🟢 GREEN':'⚫ BLACK';
+  renderPitchList();
+  const mine=players.filter(p=>p.team===currentTeam);
+  document.getElementById('pit-add-sel').innerHTML=mine.map(p=>`<option value="${p.id}">${p.name} #${p.num??'—'}</option>`).join('');
+}
+
+function renderPitchList() {
+  const el=document.getElementById('pitch-order-list');
+  const cur=po();
+  if(!cur.length){el.innerHTML='<div style="text-align:center;color:var(--text3);font-size:12px;padding:16px;">下から投手を追加してください</div>';return;}
+  el.innerHTML=cur.map((item,i)=>{
+    const p=players.find(x=>x.id===item.playerId); if(!p)return'';
+    const sc=item.status==='active'?' active-pit':item.status==='done'?' done-pit':'';
+    const sl2=item.status==='active'?`<span class="pstat pstat-active">登板中</span>`:
+               item.status==='done' ?`<span class="pstat pstat-done">終了</span>`:
+               `<span class="pstat pstat-next">${i+1}番手</span>`;
+    return `<div class="pitch-row${sc}" data-idx="${i}" draggable="${item.status==='next'}"
+      ondragstart="pDS(event,${i})" ondragover="pDO(event)" ondragleave="pDL(event)" ondragend="pDE(event)" ondrop="pDrop(event,${i})">
+      <span class="pitch-seq">${i+1}</span>
+      <div class="pitch-info"><div class="pitch-name">${p.name}</div><div class="pitch-kana">${p.kana}</div></div>
+      <span class="pitch-num">${p.num??'—'}</span>${sl2}
+    </div>`;
+  }).join('');
+}
+
+function pDS(e,i){pitchDragIdx=i;e.currentTarget.classList.add('dragging');}
+function pDE(e){e.currentTarget.classList.remove('dragging');document.querySelectorAll('.pitch-row.drag-over').forEach(r=>r.classList.remove('drag-over'));}
+function pDO(e){e.preventDefault();e.currentTarget.classList.add('drag-over');}
+function pDL(e){e.currentTarget.classList.remove('drag-over');}
+function pDrop(e,ti){
+  e.preventDefault();e.currentTarget.classList.remove('drag-over');
+  if(pitchDragIdx===null||pitchDragIdx===ti)return;
+  const cur=po(), moved=cur.splice(pitchDragIdx,1)[0]; cur.splice(ti,0,moved);
+  pitchDragIdx=null; renderPitchList();
+}
+
+function addToPitchOrder() {
+  const pid=+document.getElementById('pit-add-sel').value; if(!pid)return;
+  const cur=po();
+  if(cur.find(x=>x.playerId===pid)){toast('既に追加済みです');return;}
+  const isFirst=cur.length===0||cur.every(x=>x.status==='done');
+  cur.push({playerId:pid,status:isFirst?'active':'next'});
+  toast(`${players.find(p=>p.id===pid)?.name} を追加`);
+  renderPitchList();
+}
+
+function nextPitcher() {
+  const cur=po(), ai=cur.findIndex(x=>x.status==='active');
+  if(ai!==-1){ cur[ai].status='done'; const ni=cur.findIndex(x=>x.status==='next');
+    if(ni!==-1){cur[ni].status='active';toast(`${players.find(x=>x.id===cur[ni].playerId)?.name} が登板`);}
+    else toast('次の投手はいません');
+  } else { const ni=cur.findIndex(x=>x.status==='next');
+    if(ni!==-1)cur[ni].status='active'; else toast('投手を追加してください');
+  }
+  renderPitchList();
+}
+
+// ═══════════════════════════════════════
+// SETTINGS (選手管理)
+// ═══════════════════════════════════════
+function setSettingsFilter(f, btn) {
+  settingsFilter=f;
+  document.querySelectorAll('.filter-tab').forEach(b=>b.className='filter-tab');
+  btn.className='filter-tab on-'+f;
+  renderSettingsPage();
+}
+
+function renderSettingsPage() {
+  const pool = settingsFilter==='all' ? players
+             : players.filter(p=>p.team===settingsFilter);
+
+  const green = pool.filter(p=>p.team==='green');
+  const black = pool.filter(p=>p.team==='black');
+
+  let html = '';
+  if(green.length) {
+    html += `<div class="settings-section">
+      <div class="settings-section-title"><span class="team-dot g"></span>GREEN（${green.length}名）</div>
+      <div class="settings-list">${green.map(playerEditRowHTML).join('')}</div>
+    </div>`;
+  }
+  if(black.length) {
+    html += `<div class="settings-section">
+      <div class="settings-section-title"><span class="team-dot b"></span>BLACK（${black.length}名）</div>
+      <div class="settings-list">${black.map(playerEditRowHTML).join('')}</div>
+    </div>`;
+  }
+  if(!html) html='<div style="text-align:center;color:var(--text3);padding:20px;font-size:13px;">選手がいません</div>';
+  document.getElementById('settings-player-list').innerHTML=html;
+}
+
+function playerEditRowHTML(p) {
+  return `<div class="player-edit-row">
+    <span class="per-dot ${p.team==='green'?'g':'b'}"></span>
+    <div style="flex:1;min-width:0;">
+      <div class="per-name">${p.name}</div>
+      <div class="per-kana">${p.kana}</div>
+    </div>
+    <span class="per-num">#${p.num??'—'}</span>
+    <button class="btn-edit-p" onclick="openEditModal(${p.id})">編集</button>
+    <button class="btn-del-p"  onclick="deletePlayer(${p.id})">削除</button>
+  </div>`;
+}
+
+// ── Player edit modal ──
+function openEditModal(id) {
+  editModalId = id;
+  if(id===null) {
+    // new player
+    editTeamSel = currentTeam;
+    document.getElementById('edit-modal-title').textContent = '選手を追加';
+    document.getElementById('edit-name').value='';
+    document.getElementById('edit-kana').value='';
+    document.getElementById('edit-num').value='';
+  } else {
+    const p=players.find(x=>x.id===id);
+    editTeamSel = p.team;
+    document.getElementById('edit-modal-title').textContent = '選手を編集';
+    document.getElementById('edit-name').value=p.name;
+    document.getElementById('edit-kana').value=p.kana;
+    document.getElementById('edit-num').value=p.num??'';
+  }
+  setEditTeam(editTeamSel);
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function setEditTeam(t) {
+  editTeamSel=t;
+  document.getElementById('eteam-green').className='team-radio-btn'+(t==='green'?' on-green':'');
+  document.getElementById('eteam-black').className='team-radio-btn'+(t==='black'?' on-black':'');
+}
+
+function confirmEditPlayer() {
+  const name = document.getElementById('edit-name').value.trim();
+  const kana = document.getElementById('edit-kana').value.trim();
+  const numRaw = document.getElementById('edit-num').value.trim();
+  const num  = numRaw==='' ? null : parseInt(numRaw);
+  if(!name){ toast('名前を入力してください'); return; }
+
+  if(editModalId===null) {
+    players.push({id:nextId++, name, kana, num, pos:'―', order:null, inStamen:false, subbedOut:false, team:editTeamSel});
+    toast(`${name} を追加しました`);
+  } else {
+    const p=players.find(x=>x.id===editModalId);
+    if(p){ p.name=name; p.kana=kana; p.num=num; p.team=editTeamSel; }
+    toast(`${name} を更新しました`);
+  }
+  closeEditModal();
+  renderAll();
+  renderSettingsPage();
+}
+
+function closeEditModal(){ document.getElementById('edit-modal').classList.remove('open'); }
+
+function deletePlayer(id) {
+  const p=players.find(x=>x.id===id);
+  if(!p)return;
+  if(!confirm(`${p.name} を削除しますか？`))return;
+  players=players.filter(x=>x.id!==id);
+  // clean up field
+  ['green','black'].forEach(t=>{ Object.keys(fieldAssign[t]).forEach(pos=>{ if(fieldAssign[t][pos]===id) fieldAssign[t][pos]=null; }); });
+  toast(`${p.name} を削除しました`);
+  renderAll(); renderSettingsPage();
+}
+
+// ═══════════════════════════════════════
+// NEW GAME
+// ═══════════════════════════════════════
+function newGame() {
+  if(!confirm('新ゲームを開始しますか？\n交代履歴・投手ローテがリセットされます。'))return;
+  players.forEach(p=>{p.subbedOut=false;});
+  subLog={green:[],black:[]}; pitchOrder={green:[],black:[]};
+  subOutId=null; subInId=null; swapFirstId=null;
+  document.getElementById('swap-hint').classList.remove('show');
+  renderAll(); renderSubPage(); renderPitchPage();
+  toast('新ゲーム開始！');
+}
+
+// ═══════════════════════════════════════
+// TOAST / INIT
+// ═══════════════════════════════════════
+function toast(msg) {
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+function fixVh(){ document.documentElement.style.setProperty('--vh',window.innerHeight*.01+'px'); }
+fixVh(); window.addEventListener('resize',fixVh);
+
+document.fonts.ready.then(()=>{
+  setTimeout(()=>{const s=document.getElementById('splash');if(s){s.classList.add('hide');setTimeout(()=>s.remove(),400);}},700);
+});
+
+renderAll();
+</script>
+</body>
+</html>
