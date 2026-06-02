@@ -10,6 +10,10 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#080f1a">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%23080f1a'/%3E%3Ctext x='90' y='115' text-anchor='middle' font-size='90' fill='%23f0a500'%3E⚾%3C/text%3E%3C/svg%3E">
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Oswald:wght@400;600;700&display=swap');
 
@@ -381,6 +385,8 @@ select.pit-sel{flex:1;background:var(--s2);border:1px solid var(--border);color:
     <button class="tab"     onclick="goTab('sub',this)">交代</button>
     <button class="tab"     onclick="goTab('settings',this)">選手</button>
   </div>
+  <span id="sync-badge" style="font-size:10px;color:var(--text3);opacity:0;transition:opacity .3s;white-space:nowrap;"></span>
+  <button class="newgame-btn" onclick="openFbSetup()" style="margin-right:4px;">📡 同期設定</button>
   <button class="newgame-btn" onclick="newGame()">🔄 新ゲーム</button>
 </div>
 
@@ -544,6 +550,33 @@ select.pit-sel{flex:1;background:var(--s2);border:1px solid var(--border);color:
   </div>
 </div>
 
+<!-- Firebase設定モーダル -->
+<div class="modal-bg" id="fb-modal">
+  <div class="edit-modal-box">
+    <div class="edit-modal-title" style="color:var(--blue);">📡 デバイス間同期設定</div>
+    <p style="font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.6;">
+      Firebaseを使うとタブレット・スマホでデータを共有できます。<br>
+      設定方法は同梱の README を参照してください。
+    </p>
+    <div class="edit-row">
+      <span class="edit-label" style="min-width:80px;">API Key</span>
+      <input class="edit-input" id="fb-apikey" placeholder="AIza..." type="text">
+    </div>
+    <div class="edit-row">
+      <span class="edit-label" style="min-width:80px;">Project ID</span>
+      <input class="edit-input" id="fb-projectid" placeholder="my-baseball-app" type="text">
+    </div>
+    <div class="edit-row">
+      <span class="edit-label" style="min-width:80px;">DB URL</span>
+      <input class="edit-input" id="fb-dburl" placeholder="https://xxx-default-rtdb.firebaseio.com" type="text">
+    </div>
+    <div class="mbox-btns" style="margin-top:8px;">
+      <button class="btn-cancel" onclick="closeFbSetup()">キャンセル</button>
+      <button class="btn-ok-blue" onclick="saveFbConfig()">接続する</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -618,15 +651,18 @@ const sl  = () => subLog[currentTeam];
 // ═══════════════════════════════════════
 // TEAM SWITCH
 // ═══════════════════════════════════════
+function switchTeamUI(t) {
+  document.getElementById('tbtn-green').className = 'team-btn' + (t==='green' ? ' on-green' : '');
+  document.getElementById('tbtn-black').className = 'team-btn' + (t==='black' ? ' on-black' : '');
+  document.getElementById('hdr').style.borderBottomColor = t==='green' ? 'var(--team-green2)' : '#666';
+  document.getElementById('lineup-panel-title').textContent = '📋 ' + (t==='green' ? '🟢 GREEN' : '⚫ BLACK') + ' 打順';
+}
 function switchTeam(t) {
   currentTeam = t;
   cancelSwap();
   subOutId = null; subInId = null;
-  document.getElementById('tbtn-green').className = 'team-btn' + (t==='green' ? ' on-green' : '');
-  document.getElementById('tbtn-black').className = 'team-btn' + (t==='black' ? ' on-black' : '');
+  switchTeamUI(t);
   saveState();
-  document.getElementById('hdr').style.borderBottomColor = t==='green' ? 'var(--team-green2)' : '#666';
-  document.getElementById('lineup-panel-title').textContent = '📋 ' + (t==='green' ? '🟢 GREEN' : '⚫ BLACK') + ' 打順';
   renderAll();
   renderSubPage();
   renderPitchPage();
@@ -683,21 +719,23 @@ function orowHTML(p, isStamen) {
 }
 
 function attachRowInteraction(row, id) {
-  let pressTimer=null, didLong=false;
-  const start=()=>{ didLong=false; pressTimer=setTimeout(()=>{ didLong=true; openPosModal(id); },500); };
-  const end=()=>clearTimeout(pressTimer);
-  const tap=()=>{ if(didLong)return;
+  let pressTimer=null, didLong=false, touchHandled=false;
+  const start=(e)=>{ didLong=false; pressTimer=setTimeout(()=>{ didLong=true; openPosModal(id); },500); };
+  const end=(e)=>{ clearTimeout(pressTimer); };
+  const handleTap=()=>{
+    if(didLong)return;
     const p=players.find(x=>x.id===id);
     if(!p||p.subbedOut)return;
     if(swapFirstId===null){ swapFirstId=id; document.getElementById('swap-hint').classList.add('show'); renderOrderList(); }
     else if(swapFirstId===id){ cancelSwap(); }
     else{ doSwap(swapFirstId,id); }
   };
+  // touchイベントで処理したらclickを無視（2重発火防止）
   row.addEventListener('touchstart',start,{passive:true});
-  row.addEventListener('touchend',end,{passive:true});
-  row.addEventListener('mousedown',start);
-  row.addEventListener('mouseup',end);
-  row.addEventListener('click',tap);
+  row.addEventListener('touchend',(e)=>{ end(e); touchHandled=true; handleTap(); },{passive:true});
+  row.addEventListener('mousedown',(e)=>{ if(touchHandled)return; start(e); });
+  row.addEventListener('mouseup',(e)=>{ if(touchHandled)return; end(e); });
+  row.addEventListener('click',(e)=>{ if(touchHandled){touchHandled=false;return;} handleTap(); });
 }
 
 function cancelSwap(){ swapFirstId=null; document.getElementById('swap-hint').classList.remove('show'); renderOrderList(); }
@@ -1072,31 +1110,92 @@ function resetAllData() {
 }
 
 // ═══════════════════════════════════════
-// SAVE / LOAD (localStorage)
+// SAVE / LOAD (localStorage + Firebase sync)
 // ═══════════════════════════════════════
-const SAVE_KEY = 'baseball_mgr_v1';
+const SAVE_KEY = 'baseball_mgr_v2';
+const FB_PATH  = 'baseball_mgr/state';  // Firebase上の保存パス
+
+// ── Firebase設定 ──
+// ▼ 自分のFirebaseプロジェクトの設定に書き換えてください
+const FB_CONFIG = {
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT.firebaseapp.com",
+  databaseURL:       "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+  projectId:         "YOUR_PROJECT",
+};
+let fbDb = null;
+let fbEnabled = false;
+let syncTimer = null;
+
+function initFirebase() {
+  try {
+    if (!FB_CONFIG.apiKey || FB_CONFIG.apiKey === 'YOUR_API_KEY') return;
+    if (!firebase.apps.length) firebase.initializeApp(FB_CONFIG);
+    fbDb = firebase.database();
+    fbEnabled = true;
+    // リアルタイム受信（他デバイスからの変更を反映）
+    fbDb.ref(FB_PATH).on('value', (snap) => {
+      const d = snap.val();
+      if (!d) return;
+      // 自分が今まさに保存した直後は無視（ループ防止）
+      if (d._ts && d._ts === window._lastSaveTs) return;
+      applyState(d);
+      // チームUI・画面を更新
+      switchTeamUI(currentTeam);
+      renderAll();
+      renderSubPage();
+      renderPitchPage();
+      showSyncBadge('📡 同期済');
+    });
+    showSyncBadge('📡 Firebase接続中...');
+  } catch(e) { console.warn('Firebase init failed', e); }
+}
+
+function showSyncBadge(msg) {
+  let badge = document.getElementById('sync-badge');
+  if (!badge) return;
+  badge.textContent = msg;
+  badge.style.opacity = '1';
+  clearTimeout(badge._t);
+  badge._t = setTimeout(() => badge.style.opacity = '0', 2500);
+}
+
+function getState() {
+  return { players, nextId, fieldAssign, pitchOrder, subLog, currentTeam };
+}
+function applyState(d) {
+  if (d.players)     players     = d.players;
+  if (d.nextId)      nextId      = d.nextId;
+  if (d.fieldAssign) fieldAssign = d.fieldAssign;
+  if (d.pitchOrder)  pitchOrder  = d.pitchOrder;
+  if (d.subLog)      subLog      = d.subLog;
+  if (d.currentTeam) currentTeam = d.currentTeam;
+}
 
 function saveState() {
-  try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({
-      players, nextId, fieldAssign, pitchOrder, subLog, currentTeam
-    }));
-  } catch(e) { console.warn('save failed', e); }
+  const state = getState();
+  // localStorageに即保存
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch(e) {}
+  // Firebaseには少しデバウンスして保存（連打対策）
+  if (fbEnabled && fbDb) {
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => {
+      const ts = Date.now();
+      window._lastSaveTs = ts;
+      fbDb.ref(FB_PATH).set({ ...state, _ts: ts })
+        .then(() => showSyncBadge('📡 同期完了'))
+        .catch(e => showSyncBadge('⚠ 同期失敗'));
+    }, 800);
+  }
 }
 
 function loadState() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return false;
-    const d = JSON.parse(raw);
-    if (d.players)     players     = d.players;
-    if (d.nextId)      nextId      = d.nextId;
-    if (d.fieldAssign) fieldAssign = d.fieldAssign;
-    if (d.pitchOrder)  pitchOrder  = d.pitchOrder;
-    if (d.subLog)      subLog      = d.subLog;
-    if (d.currentTeam) currentTeam = d.currentTeam;
+    applyState(JSON.parse(raw));
     return true;
-  } catch(e) { console.warn('load failed', e); return false; }
+  } catch(e) { return false; }
 }
 
 // ═══════════════════════════════════════
@@ -1117,8 +1216,43 @@ document.fonts.ready.then(()=>{
 // 保存データを読み込む
 const loaded = loadState();
 // チームUI反映
-switchTeam(currentTeam);
+switchTeamUI(currentTeam);
 renderAll();
+
+// Firebase設定モーダル
+function openFbSetup() {
+  const saved = JSON.parse(localStorage.getItem('fb_config')||'{}');
+  document.getElementById('fb-apikey').value    = saved.apiKey    || '';
+  document.getElementById('fb-projectid').value = saved.projectId || '';
+  document.getElementById('fb-dburl').value     = saved.databaseURL || '';
+  document.getElementById('fb-modal').classList.add('open');
+}
+function closeFbSetup() { document.getElementById('fb-modal').classList.remove('open'); }
+function saveFbConfig() {
+  const apiKey      = document.getElementById('fb-apikey').value.trim();
+  const projectId   = document.getElementById('fb-projectid').value.trim();
+  const databaseURL = document.getElementById('fb-dburl').value.trim();
+  if (!apiKey || !projectId || !databaseURL) { toast('すべて入力してください'); return; }
+  const cfg = { apiKey, authDomain:`${projectId}.firebaseapp.com`, databaseURL, projectId };
+  localStorage.setItem('fb_config', JSON.stringify(cfg));
+  // FB_CONFIGを動的に上書きして再初期化
+  Object.assign(FB_CONFIG, cfg);
+  closeFbSetup();
+  // 既存のfirebaseアプリを削除して再初期化
+  try {
+    firebase.apps.forEach(app=>app.delete());
+  } catch(e){}
+  fbDb=null; fbEnabled=false;
+  initFirebase();
+  toast('Firebase接続中...');
+}
+
+// 保存済みFirebase設定があれば読み込んで自動接続
+try {
+  const savedFb = JSON.parse(localStorage.getItem('fb_config')||'{}');
+  if (savedFb.apiKey) Object.assign(FB_CONFIG, savedFb);
+} catch(e){}
+initFirebase();
 </script>
 </body>
 </html>
