@@ -68,7 +68,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .panel-title{font-family:'Oswald',sans-serif;font-size:14px;color:var(--gold);letter-spacing:1px;}
 .panel-hint{font-size:11px;color:var(--text3);margin-left:auto;}
 
-.order-list{flex:1;overflow-y:auto;padding:0;}
+.order-list{flex:1;overflow-y:auto;padding:0 0 0 6px;}
 .order-list::-webkit-scrollbar{width:3px;}
 .order-list::-webkit-scrollbar-thumb{background:var(--border2);}
 
@@ -640,7 +640,7 @@ function orowHTML(p,isStamen){
 }
 
 // ── タップ・長押し処理（renderOrderListから呼ばれる） ──
-let _pressTimer=null, _pressLong=false, _lastTap=0;
+let _pressTimer=null, _pressLong=false, _lastTapId=null, _lastTapTime=0;
 
 function _onRowTouchStart(id){
   _pressLong=false;
@@ -653,10 +653,10 @@ function _onRowTouchStart(id){
 function _onRowTouchEnd(id){
   clearTimeout(_pressTimer);
   if(_pressLong)return;
-  // 300ms以内の連続発火を防ぐ
   const now=Date.now();
-  if(now-_lastTap<300)return;
-  _lastTap=now;
+  // 同じ行への300ms以内の連続発火のみ防ぐ（別の行はOK）
+  if(_lastTapId===id && now-_lastTapTime<300)return;
+  _lastTapId=id; _lastTapTime=now;
   _doRowTap(id);
 }
 function _onRowTouchCancel(){
