@@ -1116,7 +1116,7 @@ function loadLocal(){
 // ══════════════════════════════════
 // FIREBASE
 // ══════════════════════════════════
-let fbApp=null, fbDb=null, fbOn=false, fbTimer=null, fbIgnoreTs=0;
+let fbApp=null, fbDb=null, fbOn=false, fbTimer=null, fbIgnoreTs=0, fbBlockUntil=0;
 
 function initFb(cfg){
   try{
@@ -1128,11 +1128,12 @@ function initFb(cfg){
     // リアルタイム受信
     fbDb.ref('state').on('value',snap=>{
       const d=snap.val(); if(!d)return;
-      // 自分が直前に書いたデータは無視
-      if(d._ts && d._ts===fbIgnoreTs)return;
+      // 自分が書いたデータ（またはそれ以前）は無視
+      if(d._ts && d._ts <= fbIgnoreTs) return;
+      if(Date.now() < fbBlockUntil) return;  // 書き込み直後はブロック
+      if(fbTimer) return;
       applyState(d, true);  // リモート同期：チーム切替は引き継がない
       renderAll();
-      // 現在表示中のタブだけ更新
       if(document.getElementById('pg-pitcher').classList.contains('on')) renderPitchPage();
       if(document.getElementById('pg-settings').classList.contains('on')) renderSettingsPage();
       badge('📡 同期済');
@@ -1145,7 +1146,9 @@ function fbSave(state){
   if(!fbOn||!fbDb)return;
   clearTimeout(fbTimer);
   fbTimer=setTimeout(()=>{
-    const ts=Date.now(); fbIgnoreTs=ts;
+    const ts=Date.now();
+    fbIgnoreTs=ts;
+    fbBlockUntil=ts+2000;   // 保存後2秒は受信ブロック
     fbDb.ref('state').set({...state,_ts:ts})
       .then(()=>badge('📡 同期完了'))
       .catch(()=>badge('⚠ 同期失敗'));
