@@ -269,19 +269,20 @@ select.psel{flex:1;background:var(--s2);border:1px solid var(--border);color:var
 
 /* タブレット（768px以上）で名前を大きく */
 @media(min-width:768px){
-  .td-name-main{font-size:22px;}
-  .td-name-kana{font-size:12px;}
-  .td-order-num{font-size:26px;}
-  .td-order{width:34px;}
-  .td-posnum{font-size:20px;}
-  .td-posname{font-size:9px;}
-  .td-pos{width:42px;}
-  .td-num{font-size:22px;width:42px;}
-  .td-btn{width:40px;}
-  .btn-bench,.btn-stamen{font-size:16px;padding:5px 10px;}
-  .sub-badge{font-size:12px;}
-  .member-table th{font-size:12px;padding:6px 4px;}
-  .mrow td{padding:2px 0;}
+  .member-table th{font-size:13px;padding:9px 4px;}
+  .td-order{width:40px;}
+  .td-order-num{font-size:28px;}
+  .td-order-num.b{font-size:16px;}
+  .td-pos{width:48px;}
+  .td-posnum{font-size:22px;}
+  .td-posname{font-size:10px;}
+  .td-name{padding:8px 14px;}
+  .td-name-main{font-size:24px;letter-spacing:.5px;}
+  .td-name-kana{font-size:12px;margin-top:3px;}
+  .td-num{font-size:26px;width:46px;}
+  .td-btn{width:44px;}
+  .btn-bench,.btn-stamen{font-size:18px;padding:7px 8px;}
+  .sub-badge{font-size:12px;padding:3px 8px;}
 }
 .toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:var(--s2);
   border:1px solid var(--gold);color:var(--text);padding:7px 14px;border-radius:16px;
@@ -592,7 +593,7 @@ function renderOrderList(){
     <table class="member-table">
       <thead>
         <tr>
-          <th>打順</th><th>守備</th><th>選手名</th><th>番号</th><th></th>
+          <th>打順</th><th>守備</th><th class="th-name">選手名</th><th>番号</th><th></th>
         </tr>
       </thead>
       <tbody>
@@ -788,7 +789,7 @@ function renderFieldSlots(){
   const activeFpos=activePosForRule();
   c.innerHTML=Object.entries(activeFpos).map(([pos,coord])=>{
     const pid=fa()[pos], p=pid?players.find(x=>x.id===pid):null;
-    const sn=p?(p.kana.split(' ')[0]||p.kana):'';
+    const sn=p?(p.kana.split(' ')[1]||p.kana):'';
     return `<div class="fslot" style="left:${coord.x}%;top:${coord.y}%;" data-fpos="${pos}">
       <div class="fsi ${p?'has':''}" id="fsi-${pos}">
         <div class="fsi-pos">${pos}</div>
