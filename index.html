@@ -615,7 +615,12 @@ function orowHTML(p,isStamen){
   const moveBtn = p.subbedOut ? `<span class="sub-badge">交</span>` : isStamen
     ? `<button class="btn-bench" data-bench="${p.id}" onclick="moveToBench(${p.id},event)">↓</button>`
     : `<button class="btn-stamen" data-up="${p.id}" onclick="moveToStamen(${p.id},event)">↑</button>`;
-  return `<tr class="mrow${sc}${tc}${oc}${tc2}" data-id="${p.id}" data-stamen="${isStamen?1:0}">
+  return `<tr class="mrow${sc}${tc}${oc}${tc2}" data-id="${p.id}" data-stamen="${isStamen?1:0}"
+    ontouchstart="_onRowTouchStart(${p.id})"
+    ontouchend="_onRowTouchEnd(${p.id})"
+    ontouchcancel="_onRowTouchCancel()"
+    onmousedown="_onRowTouchStart(${p.id})"
+    onmouseup="_onRowTouchEnd(${p.id})">
     <td class="td-order">
       ${isStamen
         ? `<div class="td-order-num">${p.order}</div>`
@@ -634,80 +639,42 @@ function orowHTML(p,isStamen){
   </tr>`;
 }
 
-// ── イベント委譲：order-listに一つだけリスナー ──
-(function(){
-  let pressTimer=null, pressId=null, didLong=false, lastTouchId=null, lastTouchTime=0;
-  const el=()=>document.getElementById('order-list');
+// ── タップ・長押し処理（renderOrderListから呼ばれる） ──
+let _pressTimer=null, _pressLong=false, _lastTap=0;
 
-  function getRow(e){
-    if(e.target.closest('.btn-bench,.btn-stamen')) return null;
-    return e.target.closest('.mrow');
+function _onRowTouchStart(id){
+  _pressLong=false;
+  clearTimeout(_pressTimer);
+  _pressTimer=setTimeout(()=>{
+    _pressLong=true;
+    openPosModal(id);
+  },500);
+}
+function _onRowTouchEnd(id){
+  clearTimeout(_pressTimer);
+  if(_pressLong)return;
+  // 300ms以内の連続発火を防ぐ
+  const now=Date.now();
+  if(now-_lastTap<300)return;
+  _lastTap=now;
+  _doRowTap(id);
+}
+function _onRowTouchCancel(){
+  clearTimeout(_pressTimer);
+}
+function _doRowTap(id){
+  const p=players.find(x=>x.id===id);
+  if(!p||p.subbedOut)return;
+  if(swapFirstId===null){
+    swapFirstId=id;
+    document.getElementById('swap-bar').classList.add('show');
+    renderOrderList();
+  } else if(swapFirstId===id){
+    cancelSwap();
+  } else {
+    doSwap(swapFirstId,id);
   }
-
-  function startPress(id){
-    pressId=id; didLong=false;
-    pressTimer=setTimeout(()=>{
-      didLong=true;
-      openPosModal(id);
-    },500);
-  }
-  function cancelPress(){ clearTimeout(pressTimer); }
-
-  function doTap(id){
-    if(didLong)return;
-    const p=players.find(x=>x.id===id);
-    if(!p||p.subbedOut)return;
-    if(swapFirstId===null){
-      swapFirstId=id;
-      document.getElementById('swap-bar').classList.add('show');
-      renderOrderList();
-    } else if(swapFirstId===id){
-      cancelSwap();
-    } else {
-      doSwap(swapFirstId,id);
-    }
-  }
-
-  // スクリプトはbody末尾なのでDOM構築済み、直接実行
-  (()=>{
-    const container=document.getElementById('order-list');
-
-    container.addEventListener('touchstart',e=>{
-      const row=getRow(e);
-      if(!row)return;
-      startPress(+row.dataset.id);
-    },{passive:true});
-
-    container.addEventListener('touchend',e=>{
-      const row=getRow(e);
-      cancelPress();
-      if(!row)return;
-      const id=+row.dataset.id;
-      const now=Date.now();
-      // 同じタッチIDの二重発火を防ぐ
-      if(lastTouchId===id&&now-lastTouchTime<300)return;
-      lastTouchId=id; lastTouchTime=now;
-      doTap(id);
-    },{passive:true});
-
-    container.addEventListener('touchcancel',()=>cancelPress(),{passive:true});
-
-    // mouseはタッチ非対応環境（PC確認）用
-    container.addEventListener('mousedown',e=>{
-      const row=getRow(e);
-      if(!row)return;
-      startPress(+row.dataset.id);
-    });
-    container.addEventListener('mouseup',e=>{
-      const row=getRow(e);
-      cancelPress();
-      if(!row)return;
-      // touchendが既に処理していたら300ms以内は無視
-      if(Date.now()-lastTouchTime<300)return;
-      doTap(+row.dataset.id);
-    });
-  })();
-})();
+}
 
 // ↓ スタメン→ベンチ（人数問わず）
 function moveToBench(id, e){
