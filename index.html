@@ -837,8 +837,17 @@ function closePosModal(){ document.getElementById('pos-modal').classList.remove(
 function openFaModal(pos){
   faModalPos=pos;
   document.getElementById('fa-title').textContent=`${pos}（${POS_JP[pos]}）に配置`;
+  // スタメンのみ表示（ベンチは除外）
+  const stamenPool = mine().filter(p=>p.inStamen);
   document.getElementById('fa-sel').innerHTML=`<option value="">（未配置）</option>`+
-    mine().map(p=>`<option value="${p.id}" ${fa()[pos]===p.id?'selected':''}>${p.name} #${p.num??'—'}</option>`).join('');
+    stamenPool.map(p=>{
+      const isAssigned = p.pos !== '―' && p.pos !== 'DH'; // 既にどこかに配置済み
+      const isCurrent  = fa()[pos]===p.id;                // 今このポジションにいる
+      const label = isAssigned && !isCurrent
+        ? `${p.name} #${p.num??'—'}　[${p.pos}]`  // 配置済み表示
+        : `${p.name} #${p.num??'—'}`;
+      return `<option value="${p.id}" ${isCurrent?'selected':''} class="${isAssigned&&!isCurrent?'assigned':''}">${label}</option>`;
+    }).join('');
   document.getElementById('fa-modal').classList.add('open');
 }
 function closeFaModal(){ document.getElementById('fa-modal').classList.remove('open'); }
