@@ -471,7 +471,7 @@ const POS_LIST=['P','C','1B','2B','3B','SS','LF','CF','RF','DH','―'];
 const POS_JP={P:'投手',C:'捕手','1B':'一塁','2B':'二塁','3B':'三塁',SS:'遊撃',LF:'左翼',CF:'中堅',RF:'右翼',DH:'DH','―':'未定'};
 const POS_NUM={P:'①',C:'②','1B':'③','2B':'④','3B':'⑤',SS:'⑥',LF:'⑦',CF:'⑧',RF:'⑨',DH:'DH','―':''}; 
 const FPOS={P:{x:50,y:54},C:{x:50,y:71},'1B':{x:72,y:57},'2B':{x:62,y:43},'3B':{x:28,y:57},SS:{x:38,y:44},LF:{x:20,y:32},CF:{x:50,y:24},RF:{x:80,y:32}};
-const SAVE_KEY='bbmgr_v5';
+const SAVE_KEY='bbmgr_v6';
 
 // ══════════════════════════════════
 // STATE
@@ -1113,28 +1113,50 @@ let fbApp=null, fbDb=null, fbOn=false, fbTimer=null, fbIgnoreTs=0, fbBlockUntil=
 
 function initFb(cfg){
   try{
-    // 既存アプリ削除
     if(fbApp){ try{fbApp.delete();}catch(e){} fbApp=null; fbDb=null; fbOn=false; }
     fbApp=firebase.initializeApp(cfg,'bbmgr');
     fbDb=firebase.database(fbApp);
     fbOn=true;
-    // リアルタイム受信
-    fbDb.ref('state').on('value',snap=>{
-      const d=snap.val(); if(!d)return;
-      // 自分が書いたデータ（またはそれ以前）は無視
-      if(d._ts && d._ts <= fbIgnoreTs) return;
-      if(Date.now() < fbBlockUntil) return;  // 書き込み直後はブロック
-      if(fbTimer) return;
-      // データ異常チェック（playersが空や壊れている場合は無視）
-      if(!d.players||!Array.isArray(d.players)||d.players.length===0) return;
-      applyState(d, true);  // リモート同期：チーム切替は引き継がない
-      renderAll();
-      if(document.getElementById('pg-pitcher').classList.contains('on')) renderPitchPage();
-      if(document.getElementById('pg-settings').classList.contains('on')) renderSettingsPage();
-      badge('📡 同期済');
-    });
-    badge('📡 接続完了');
+    badge('📡 接続中...');
+
+    // ① まず自分のデータをFirebaseに書き込む
+    const initTs=Date.now();
+    fbIgnoreTs=initTs;
+    fbBlockUntil=initTs+8000; // 8秒間は受信ブロック
+
+    fbDb.ref('state').set({...getState(),_ts:initTs})
+      .then(()=>{
+        badge('📡 接続完了');
+        // ② 書き込み完了後にリスナー開始
+        startFbListener();
+      })
+      .catch(e=>{
+        console.warn('FB write error',e);
+        badge('⚠ 接続失敗');
+        // 書き込み失敗してもリスナーは開始する
+        startFbListener();
+      });
   }catch(e){ console.warn('FB error',e); badge('⚠ 接続失敗'); }
+}
+
+function startFbListener(){
+  if(!fbDb)return;
+  fbDb.ref('state').on('value',snap=>{
+    const d=snap.val(); if(!d)return;
+    // 自分が書いたデータ以前は無視
+    if(d._ts && d._ts<=fbIgnoreTs) return;
+    // 書き込み直後のブロック期間は無視
+    if(Date.now()<fbBlockUntil) return;
+    // 書き込み中は無視
+    if(fbTimer) return;
+    // データ異常チェック
+    if(!d.players||!Array.isArray(d.players)||d.players.length===0) return;
+    applyState(d,true);
+    renderAll();
+    if(document.getElementById('pg-pitcher').classList.contains('on')) renderPitchPage();
+    if(document.getElementById('pg-settings').classList.contains('on')) renderSettingsPage();
+    badge('📡 同期済');
+  });
 }
 
 function fbSave(state){
