@@ -805,7 +805,7 @@ function openPosModal(pid){
   const p=players.find(x=>x.id===pid); posModalPid=pid; posModalSel=p.pos;
   document.getElementById('pos-modal-title').textContent=`${p.kana}　#${p.num??'—'}`;
   const activePosList=ruleMode===6
-    ? POS_LIST.filter(p=>!OUTFIELD.includes(p))
+    ? POS_LIST.filter(pos=>!OUTFIELD.includes(pos))
     : POS_LIST;
   document.getElementById('pos-grid').innerHTML=activePosList.map(pos=>
     `<button class="pgb ${pos===posModalSel?'sel':''}" data-pos="${pos}" onclick="selPos('${pos}')">${pos}<small>${POS_JP[pos]}</small></button>`
