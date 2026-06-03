@@ -471,7 +471,7 @@ const POS_LIST=['P','C','1B','2B','3B','SS','LF','CF','RF','DH','―'];
 const POS_JP={P:'投手',C:'捕手','1B':'一塁','2B':'二塁','3B':'三塁',SS:'遊撃',LF:'左翼',CF:'中堅',RF:'右翼',DH:'DH','―':'未定'};
 const POS_NUM={P:'①',C:'②','1B':'③','2B':'④','3B':'⑤',SS:'⑥',LF:'⑦',CF:'⑧',RF:'⑨',DH:'DH','―':''}; 
 const FPOS={P:{x:50,y:54},C:{x:50,y:71},'1B':{x:72,y:57},'2B':{x:62,y:43},'3B':{x:28,y:57},SS:{x:38,y:44},LF:{x:20,y:32},CF:{x:50,y:24},RF:{x:80,y:32}};
-const SAVE_KEY='bbmgr_v6';
+const SAVE_KEY='bbmgr';
 
 // ══════════════════════════════════
 // STATE
@@ -1099,11 +1099,29 @@ function saveState(){
   fbSave(s);
 }
 function loadLocal(){
+  // 現在のキーで読む
   try{
     const r=localStorage.getItem(SAVE_KEY);
-    if(!r)return false;
-    applyState(JSON.parse(r)); return true;
-  }catch(e){return false;}
+    if(r){ applyState(JSON.parse(r)); return true; }
+  }catch(e){}
+  // 古いキーからマイグレーション（v3〜v6）
+  const oldKeys=['bbmgr_v6','bbmgr_v5','bbmgr_v4','bbmgr_v3'];
+  for(const k of oldKeys){
+    try{
+      const r=localStorage.getItem(k);
+      if(r){
+        const d=JSON.parse(r);
+        if(d.players&&d.players.length>0){
+          applyState(d);
+          // 新キーに保存しておく
+          localStorage.setItem(SAVE_KEY,r);
+          toast('データを引き継ぎました');
+          return true;
+        }
+      }
+    }catch(e){}
+  }
+  return false;
 }
 
 // ══════════════════════════════════
