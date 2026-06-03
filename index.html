@@ -803,16 +803,16 @@ function renderFieldSlots(){
 // ══════════════════════════════════
 function openPosModal(pid){
   const p=players.find(x=>x.id===pid); posModalPid=pid; posModalSel=p.pos;
-  document.getElementById('pos-modal-title').textContent=`${p.name} #${p.num??'—'}`;
+  document.getElementById('pos-modal-title').textContent=`${p.kana}　#${p.num??'—'}`;
   const activePosList=ruleMode===6
     ? POS_LIST.filter(p=>!OUTFIELD.includes(p))
     : POS_LIST;
   document.getElementById('pos-grid').innerHTML=activePosList.map(pos=>
-    `<button class="pgb ${pos===posModalSel?'sel':''}" onclick="selPos('${pos}')">${pos}<small>${POS_JP[pos]}</small></button>`
+    `<button class="pgb ${pos===posModalSel?'sel':''}" data-pos="${pos}" onclick="selPos('${pos}')">${pos}<small>${POS_JP[pos]}</small></button>`
   ).join('');
   document.getElementById('pos-modal').classList.add('open');
 }
-function selPos(pos){ posModalSel=pos; document.querySelectorAll('#pos-grid .pgb').forEach(b=>b.classList.toggle('sel',b.textContent.trim().startsWith(pos))); }
+function selPos(pos){ posModalSel=pos; document.querySelectorAll('#pos-grid .pgb').forEach(b=>b.classList.toggle('sel',b.dataset.pos===pos)); }
 function confirmPos(){
   const p=players.find(x=>x.id===posModalPid); if(!p)return;
   if(posModalSel!=='―'&&posModalSel!=='DH'){
