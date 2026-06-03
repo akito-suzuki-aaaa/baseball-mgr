@@ -895,9 +895,7 @@ function confirmFa(){
 // SUB PAGE
 // ══════════════════════════════════
 function renderSubPage(){
-  fillSlotUI('out',subOutId); fillSlotUI('in',subInId);
-  document.getElementById('btn-sub').disabled=!(subOutId&&subInId);
-  renderSubLog();
+  // 交代タブは削除済みのため何もしない
 }
 function openPicker(mode){
   pickerMode=mode;
@@ -922,12 +920,12 @@ function openPicker(mode){
 function pickPlayer(pid){
   if(pickerMode==='out') subOutId=pid; else subInId=pid;
   fillSlotUI(pickerMode,pid);
-  document.getElementById('btn-sub').disabled=!(subOutId&&subInId);
+  const bs=document.getElementById('btn-sub'); if(bs) bs.disabled=!(subOutId&&subInId);
   closePicker();
 }
 function fillSlotUI(mode,pid){
-  const sl=document.getElementById('slot-'+mode);
-  const tx=document.getElementById('slot-'+mode+'-txt');
+  const sl=document.getElementById('slot-'+mode); if(!sl)return;
+  const tx=document.getElementById('slot-'+mode+'-txt'); if(!tx)return;
   if(!pid){ sl.classList.remove('filled'); tx.innerHTML='<div class="sslot-empty">タップで選択</div>'; return; }
   const p=players.find(x=>x.id===pid);
   sl.classList.add('filled');
@@ -949,7 +947,8 @@ function doSub(){
   renderAll(); renderSubPage();
 }
 function renderSubLog(){
-  const el=document.getElementById('log-list'), log=sl();
+  const el=document.getElementById('log-list'); if(!el)return;
+  const log=sl();
   el.innerHTML=log.length
     ? log.map(s=>`<div class="log-item"><span class="log-out">${s.outName}</span><span class="log-arr">→</span><span class="log-in">${s.inName}</span><span class="log-pos">${s.pos!=='―'?s.pos:''} ${s.time}</span></div>`).join('')
     : '<div class="log-empty">まだ交代はありません</div>';
