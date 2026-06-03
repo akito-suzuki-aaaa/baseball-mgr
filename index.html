@@ -758,18 +758,13 @@ function renderFieldSlots(){
   c.innerHTML=Object.entries(activeFpos).map(([pos,coord])=>{
     const pid=fa()[pos], p=pid?players.find(x=>x.id===pid):null;
     const sn=p?(p.kana.split(' ')[1]||p.kana):'';
-    return `<div class="fslot" style="left:${coord.x}%;top:${coord.y}%;" data-fpos="${pos}">
+    return `<div class="fslot" style="left:${coord.x}%;top:${coord.y}%;" onclick="openFaModal('${pos}')">
       <div class="fsi ${p?'has':''}" id="fsi-${pos}">
         <div class="fsi-pos">${pos}</div>
         ${p?`<div class="fsi-name">${POS_NUM[pos]||''} ${sn}</div><div class="fsi-num">#${p.num??'—'}</div>`
            :`<div class="fsi-name fsi-empty">未定</div>`}
       </div></div>`;
   }).join('');
-  // タップで選択
-  c.querySelectorAll('.fslot').forEach(slot=>{
-    const pos=slot.dataset.fpos;
-    slot.addEventListener('click',()=>openFaModal(pos));
-  });
 }
 
 // ══════════════════════════════════
@@ -827,7 +822,7 @@ function openFaModal(pos){
   faModalPos=pos;
   document.getElementById('fa-title').textContent=`${pos}（${POS_JP[pos]}）に配置`;
   // スタメンのみ表示（ベンチは除外）
-  const stamenPool = mine().filter(p=>p.inStamen);
+  const stamenPool = mine().filter(p=>!p.subbedOut);
   document.getElementById('fa-sel').innerHTML=`<option value="">（未配置）</option>`+
     stamenPool.map(p=>{
       const isAssigned = p.pos !== '―' && p.pos !== 'DH'; // 既にどこかに配置済み
