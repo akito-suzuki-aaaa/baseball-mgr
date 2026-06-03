@@ -260,6 +260,19 @@ select.psel{flex:1;background:var(--s2);border:1px solid var(--border);color:var
   padding:9px;font-family:'Noto Sans JP',sans-serif;font-size:14px;margin-bottom:11px;}
 @keyframes pr{from{opacity:.6;transform:translate(-50%,-50%) scale(.5)}to{opacity:0;transform:translate(-50%,-50%) scale(1.8)}}
 .pr{position:fixed;width:48px;height:48px;border:2px solid var(--blue);border-radius:50%;pointer-events:none;animation:pr .5s ease-out forwards;z-index:9998;}
+/* タブレット（768px以上）で名前を大きく */
+@media(min-width:768px){
+  .oname{font-size:24px;}
+  .okana{font-size:14px;}
+  .onum{font-size:28px;width:30px;}
+  .onum.b{font-size:20px;}
+  .ojersey{font-size:26px;width:36px;}
+  .pchip{font-size:15px;padding:4px 9px;min-width:38px;}
+  .btn-bench,.btn-stamen{font-size:16px;padding:6px 14px;}
+  .sub-badge{font-size:13px;}
+  .orow{padding:11px 12px;gap:8px;}
+  .oinfo{gap:3px;}
+}
 .toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:var(--s2);
   border:1px solid var(--gold);color:var(--text);padding:7px 14px;border-radius:16px;
   font-size:13px;font-weight:700;opacity:0;transition:opacity .25s;z-index:9999;pointer-events:none;white-space:nowrap;}
@@ -1009,13 +1022,14 @@ function newGame(){
 // SAVE / LOAD
 // ══════════════════════════════════
 function getState(){ return {players,nextId,fieldAssign,pitchOrder,subLog,currentTeam}; }
-function applyState(d){
+function applyState(d, fromRemote){
   if(d.players)    players    =d.players;
   if(d.nextId)     nextId     =d.nextId;
   if(d.fieldAssign)fieldAssign=d.fieldAssign;
   if(d.pitchOrder) pitchOrder =d.pitchOrder;
   if(d.subLog)     subLog     =d.subLog;
-  if(d.currentTeam)currentTeam=d.currentTeam;
+  // リモートからの同期時はチーム切替・タブ遷移を同期しない
+  if(!fromRemote && d.currentTeam) currentTeam=d.currentTeam;
 }
 function saveState(){
   const s=getState();
@@ -1047,9 +1061,12 @@ function initFb(cfg){
       const d=snap.val(); if(!d)return;
       // 自分が直前に書いたデータは無視
       if(d._ts && d._ts===fbIgnoreTs)return;
-      applyState(d);
-      applyTeamUI(currentTeam);
-      renderAll(); renderSubPage(); renderPitchPage();
+      applyState(d, true);  // リモート同期：チーム切替は引き継がない
+      renderAll();
+      // 現在表示中のタブだけ更新
+      if(document.getElementById('pg-sub').classList.contains('on')) renderSubPage();
+      if(document.getElementById('pg-pitcher').classList.contains('on')) renderPitchPage();
+      if(document.getElementById('pg-settings').classList.contains('on')) renderSettingsPage();
       badge('📡 同期済');
     });
     badge('📡 接続完了');
