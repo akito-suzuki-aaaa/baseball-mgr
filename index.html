@@ -330,7 +330,7 @@ select.psel{flex:1;background:var(--s2);border:1px solid var(--border);color:var
     </div>
   </div>
   <div class="field-panel">
-    <div class="panel-hdr"><span class="panel-title">🏟 守備</span><span class="panel-hint">長押しで変更</span></div>
+    <div class="panel-hdr"><span class="panel-title">🏟 守備</span><span class="panel-hint">タップで変更</span></div>
     <div class="field-body">
       <svg class="field-svg" viewBox="0 0 300 280" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
         <rect width="300" height="280" fill="#080f1a"/>
@@ -646,7 +646,8 @@ function orowHTML(p,isStamen){
     }
   }
 
-  document.addEventListener('DOMContentLoaded',()=>{
+  // スクリプトはbody末尾なのでDOM構築済み、直接実行
+  (()=>{
     const container=document.getElementById('order-list');
 
     container.addEventListener('touchstart',e=>{
@@ -683,7 +684,7 @@ function orowHTML(p,isStamen){
       if(Date.now()-lastTouchTime<300)return;
       doTap(+row.dataset.id);
     });
-  });
+  })();
 })();
 
 // ↓ スタメン→ベンチ（人数問わず）
@@ -775,26 +776,10 @@ function renderFieldSlots(){
            :`<div class="fsi-name fsi-empty">未定</div>`}
       </div></div>`;
   }).join('');
-  // 長押しイベント委譲
+  // タップで選択
   c.querySelectorAll('.fslot').forEach(slot=>{
     const pos=slot.dataset.fpos;
-    const inner=slot.querySelector('.fsi');
-    let t=null,dl=false;
-    const s=()=>{ dl=false; inner.classList.add('pressing');
-      t=setTimeout(()=>{ dl=true; inner.classList.remove('pressing');
-        const r=inner.getBoundingClientRect();
-        const ring=document.createElement('div'); ring.className='pr';
-        ring.style.left=(r.left+r.width/2)+'px'; ring.style.top=(r.top+r.height/2)+'px';
-        document.body.appendChild(ring); setTimeout(()=>ring.remove(),500);
-        openFaModal(pos);
-      },500); };
-    const e=()=>{ clearTimeout(t); inner.classList.remove('pressing'); };
-    slot.addEventListener('touchstart',s,{passive:true});
-    slot.addEventListener('touchend',e,{passive:true});
-    slot.addEventListener('touchcancel',e,{passive:true});
-    slot.addEventListener('mousedown',s);
-    slot.addEventListener('mouseup',e);
-    slot.addEventListener('mouseleave',e);
+    slot.addEventListener('click',()=>openFaModal(pos));
   });
 }
 
