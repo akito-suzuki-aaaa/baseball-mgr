@@ -269,16 +269,17 @@ select.psel{flex:1;background:var(--s2);border:1px solid var(--border);color:var
 
 /* タブレット（768px以上）で名前を大きく */
 @media(min-width:768px){
-  .oname{font-size:24px;}
-  .okana{font-size:14px;}
-  .onum{font-size:28px;width:30px;}
-  .onum.b{font-size:20px;}
-  .ojersey{font-size:26px;width:36px;}
-  .pchip{font-size:15px;padding:4px 9px;min-width:38px;}
-  .btn-bench,.btn-stamen{font-size:16px;padding:6px 14px;}
-  .sub-badge{font-size:13px;}
-  .orow{padding:11px 12px;gap:8px;}
-  .oinfo{gap:3px;}
+  .td-name-main{font-size:20px;}
+  .td-name-kana{font-size:11px;}
+  .td-order-num{font-size:22px;}
+  .td-posnum{font-size:18px;}
+  .td-posname{font-size:9px;}
+  .td-num{font-size:20px;width:36px;}
+  .td-order{width:30px;}
+  .td-pos{width:38px;}
+  .btn-bench,.btn-stamen{font-size:15px;padding:5px 12px;}
+  .sub-badge{font-size:11px;}
+  .member-table th{font-size:11px;padding:5px 4px;}
 }
 .toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:var(--s2);
   border:1px solid var(--gold);color:var(--text);padding:7px 14px;border-radius:16px;
@@ -464,6 +465,7 @@ select.psel{flex:1;background:var(--s2);border:1px solid var(--border);color:var
 // ══════════════════════════════════
 const POS_LIST=['P','C','1B','2B','3B','SS','LF','CF','RF','DH','―'];
 const POS_JP={P:'投手',C:'捕手','1B':'一塁','2B':'二塁','3B':'三塁',SS:'遊撃',LF:'左翼',CF:'中堅',RF:'右翼',DH:'DH','―':'未定'};
+const POS_NUM={P:'①',C:'②','1B':'③','2B':'④','3B':'⑤',SS:'⑥',LF:'⑦',CF:'⑧',RF:'⑨',DH:'DH','―':''}; 
 const FPOS={P:{x:50,y:54},C:{x:50,y:66},'1B':{x:72,y:57},'2B':{x:62,y:43},'3B':{x:28,y:57},SS:{x:38,y:44},LF:{x:20,y:32},CF:{x:50,y:24},RF:{x:80,y:32}};
 const SAVE_KEY='bbmgr_v4';
 
@@ -584,31 +586,48 @@ function renderOrderList(){
   const stamen=mine().filter(p=>p.inStamen).sort((a,b)=>a.order-b.order);
   const bench =mine().filter(p=>!p.inStamen);
   const el=document.getElementById('order-list');
-  el.innerHTML=
-    stamen.map(p=>orowHTML(p,true)).join('')+
-    `<div class="bench-div">── ベンチ ──</div>`+
-    bench.map(p=>orowHTML(p,false)).join('');
-  // イベントはdelegationで一括処理（再生成後のクロージャ問題を回避）
+  el.innerHTML=`
+    <table class="member-table">
+      <thead>
+        <tr>
+          <th>打順</th><th>守備</th><th>選手名</th><th>番号</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${stamen.map(p=>orowHTML(p,true)).join('')}
+        <tr class="bench-div-row"><td colspan="5">── ベンチ ──</td></tr>
+        ${bench.map(p=>orowHTML(p,false)).join('')}
+      </tbody>
+    </table>`;
 }
 
 function orowHTML(p,isStamen){
-  const pc='pc-'+(p.pos==='―'?'none':p.pos);
-  const pl=p.pos==='―'?'?':p.pos;
-  const sc=swapFirstId===p.id?' sel':'';
-  const tc=swapFirstId&&swapFirstId!==p.id&&!p.subbedOut?' tgt':'';
-  const oc=p.subbedOut?' out':(!isStamen?' bench':'');
-  const tc2=currentTeam==='green'?' tg':' tb';
-  // ベンチ外し／スタメン昇格ボタン（交代済みは非表示）
-  const moveBtn = p.subbedOut ? '' : isStamen
+  const posNum  = POS_NUM[p.pos] || '';
+  const posName = POS_JP[p.pos]  || '';
+  const sc  = swapFirstId===p.id?' sel':'';
+  const tc  = swapFirstId&&swapFirstId!==p.id&&!p.subbedOut?' tgt':'';
+  const oc  = p.subbedOut?' out':(!isStamen?' bench':'');
+  const tc2 = currentTeam==='green'?' tg':' tb';
+  const moveBtn = p.subbedOut ? `<span class="sub-badge">交</span>` : isStamen
     ? `<button class="btn-bench" data-bench="${p.id}" onclick="moveToBench(${p.id},event)">↓</button>`
     : `<button class="btn-stamen" data-up="${p.id}" onclick="moveToStamen(${p.id},event)">↑</button>`;
-  return `<div class="orow${sc}${tc}${oc}${tc2}" data-id="${p.id}" data-stamen="${isStamen?1:0}">
-    ${isStamen?`<span class="onum">${p.order}</span>`:`<span class="onum b">B</span>`}
-    <div class="oinfo"><div class="oname">${p.name}</div><div class="okana">${p.kana}</div></div>
-    <span class="pchip ${pc}">${pl}</span>
-    <span class="ojersey">${p.num??'—'}</span>
-    ${p.subbedOut?'<span class="sub-badge">交代済</span>':moveBtn}
-  </div>`;
+  return `<tr class="mrow${sc}${tc}${oc}${tc2}" data-id="${p.id}" data-stamen="${isStamen?1:0}">
+    <td class="td-order">
+      ${isStamen
+        ? `<div class="td-order-num">${p.order}</div>`
+        : `<div class="td-order-num b">B</div>`}
+    </td>
+    <td class="td-pos">
+      <div class="td-posnum">${posNum}</div>
+      <div class="td-posname">${p.pos!=='―'?p.pos:''}</div>
+    </td>
+    <td class="td-name">
+      <div class="td-name-main">${p.name}</div>
+      <div class="td-name-kana">${p.kana}</div>
+    </td>
+    <td class="td-num">${p.num??'—'}</td>
+    <td class="td-btn">${moveBtn}</td>
+  </tr>`;
 }
 
 // ── イベント委譲：order-listに一つだけリスナー ──
@@ -617,9 +636,8 @@ function orowHTML(p,isStamen){
   const el=()=>document.getElementById('order-list');
 
   function getRow(e){
-    // ↑↓ボタン自体はonclickで処理済みなのでrowとして扱わない
-    if(e.target.closest('.btn-bench,.btn-stamen,.pchip')) return null;
-    return e.target.closest('.orow');
+    if(e.target.closest('.btn-bench,.btn-stamen')) return null;
+    return e.target.closest('.mrow');
   }
 
   function startPress(id){
@@ -768,11 +786,11 @@ function renderFieldSlots(){
   const activeFpos=activePosForRule();
   c.innerHTML=Object.entries(activeFpos).map(([pos,coord])=>{
     const pid=fa()[pos], p=pid?players.find(x=>x.id===pid):null;
-    const sn=p?(p.name.split(' ')[1]||p.name):'';
+    const sn=p?(p.kana.split(' ')[0]||p.kana):'';
     return `<div class="fslot" style="left:${coord.x}%;top:${coord.y}%;" data-fpos="${pos}">
       <div class="fsi ${p?'has':''}" id="fsi-${pos}">
         <div class="fsi-pos">${pos}</div>
-        ${p?`<div class="fsi-name">${sn}</div><div class="fsi-num">#${p.num??'—'}</div>`
+        ${p?`<div class="fsi-name">${POS_NUM[pos]||''} ${sn}</div><div class="fsi-num">#${p.num??'—'}</div>`
            :`<div class="fsi-name fsi-empty">未定</div>`}
       </div></div>`;
   }).join('');
