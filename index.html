@@ -470,8 +470,8 @@ select.psel{flex:1;background:var(--s2);border:1px solid var(--border);color:var
 const POS_LIST=['P','C','1B','2B','3B','SS','LF','CF','RF','DH','―'];
 const POS_JP={P:'投手',C:'捕手','1B':'一塁','2B':'二塁','3B':'三塁',SS:'遊撃',LF:'左翼',CF:'中堅',RF:'右翼',DH:'DH','―':'未定'};
 const POS_NUM={P:'①',C:'②','1B':'③','2B':'④','3B':'⑤',SS:'⑥',LF:'⑦',CF:'⑧',RF:'⑨',DH:'DH','―':''}; 
-const FPOS={P:{x:50,y:54},C:{x:50,y:66},'1B':{x:72,y:57},'2B':{x:62,y:43},'3B':{x:28,y:57},SS:{x:38,y:44},LF:{x:20,y:32},CF:{x:50,y:24},RF:{x:80,y:32}};
-const SAVE_KEY='bbmgr_v4';
+const FPOS={P:{x:50,y:54},C:{x:50,y:71},'1B':{x:72,y:57},'2B':{x:62,y:43},'3B':{x:28,y:57},SS:{x:38,y:44},LF:{x:20,y:32},CF:{x:50,y:24},RF:{x:80,y:32}};
+const SAVE_KEY='bbmgr_v5';
 
 // ══════════════════════════════════
 // STATE
@@ -1130,6 +1130,8 @@ function initFb(cfg){
       if(d._ts && d._ts <= fbIgnoreTs) return;
       if(Date.now() < fbBlockUntil) return;  // 書き込み直後はブロック
       if(fbTimer) return;
+      // データ異常チェック（playersが空や壊れている場合は無視）
+      if(!d.players||!Array.isArray(d.players)||d.players.length===0) return;
       applyState(d, true);  // リモート同期：チーム切替は引き継がない
       renderAll();
       if(document.getElementById('pg-pitcher').classList.contains('on')) renderPitchPage();
@@ -1146,7 +1148,7 @@ function fbSave(state){
   fbTimer=setTimeout(()=>{
     const ts=Date.now();
     fbIgnoreTs=ts;
-    fbBlockUntil=ts+2000;   // 保存後2秒は受信ブロック
+    fbBlockUntil=ts+5000;   // 保存後5秒は受信ブロック
     fbDb.ref('state').set({...state,_ts:ts})
       .then(()=>badge('📡 同期完了'))
       .catch(()=>badge('⚠ 同期失敗'));
