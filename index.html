@@ -144,7 +144,6 @@ select.psel{flex:1;background:var(--s2);border:1px solid var(--border);color:var
   font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
 
 /* ── SUB PAGE ── */
-#pg-sub{flex-direction:column;overflow:hidden;}
 .sub-body{flex:1;overflow-y:auto;padding:8px;}
 .sub-ui{background:var(--s1);border:1px solid var(--border);border-radius:11px;padding:11px;margin-bottom:12px;}
 .sub-ui-title{font-family:'Oswald',sans-serif;font-size:15px;color:var(--gold);margin-bottom:9px;}
@@ -260,6 +259,14 @@ select.psel{flex:1;background:var(--s2);border:1px solid var(--border);color:var
   padding:9px;font-family:'Noto Sans JP',sans-serif;font-size:14px;margin-bottom:11px;}
 @keyframes pr{from{opacity:.6;transform:translate(-50%,-50%) scale(.5)}to{opacity:0;transform:translate(-50%,-50%) scale(1.8)}}
 .pr{position:fixed;width:48px;height:48px;border:2px solid var(--blue);border-radius:50%;pointer-events:none;animation:pr .5s ease-out forwards;z-index:9998;}
+/* 6人制ボタン */
+.rule-sw{display:flex;gap:2px;background:var(--s2);border:1px solid var(--border);border-radius:18px;padding:2px;}
+.rbtn{padding:4px 9px;border-radius:14px;font-size:11px;font-weight:700;font-family:'Noto Sans JP',sans-serif;
+  border:none;background:none;color:var(--text2);cursor:pointer;transition:all .2s;white-space:nowrap;}
+.rbtn.on9{background:var(--gold);color:#000;}
+.rbtn.on6{background:var(--red);color:#fff;}
+.fslot.hidden{display:none;}
+
 /* タブレット（768px以上）で名前を大きく */
 @media(min-width:768px){
   .oname{font-size:24px;}
@@ -294,8 +301,11 @@ select.psel{flex:1;background:var(--s2);border:1px solid var(--border);color:var
   <div class="tabs">
     <button class="tab on" onclick="goTab('lineup',this)">打順</button>
     <button class="tab"    onclick="goTab('pitcher',this)">投手</button>
-    <button class="tab"    onclick="goTab('sub',this)">交代</button>
     <button class="tab"    onclick="goTab('settings',this)">選手</button>
+  </div>
+  <div class="rule-sw">
+    <button class="rbtn on9" id="rbtn9" onclick="setRule(9)">9人制</button>
+    <button class="rbtn"     id="rbtn6" onclick="setRule(6)">6人制</button>
   </div>
   <div class="hdr-right">
     <span id="sync-badge"></span>
@@ -356,29 +366,6 @@ select.psel{flex:1;background:var(--s2);border:1px solid var(--border);color:var
         <button class="btn-ap" onclick="addPitcher()">追加</button>
       </div>
     </div>
-  </div>
-</div>
-
-<!-- ── SUB ── -->
-<div id="pg-sub" class="page">
-  <div class="sub-body">
-    <div class="sub-ui">
-      <div class="sub-ui-title">🔄 選手交代</div>
-      <div class="sub-slots">
-        <div class="sslot" id="slot-out" onclick="openPicker('out')">
-          <div class="sslot-lbl">⬅ 退く</div>
-          <div id="slot-out-txt"><div class="sslot-empty">タップで選択</div></div>
-        </div>
-        <div class="sub-arr">→</div>
-        <div class="sslot" id="slot-in" onclick="openPicker('in')">
-          <div class="sslot-lbl">➡ 入る</div>
-          <div id="slot-in-txt"><div class="sslot-empty">タップで選択</div></div>
-        </div>
-      </div>
-      <button class="btn-sub" id="btn-sub" onclick="doSub()" disabled>✅ 交代実行</button>
-    </div>
-    <div class="log-hdr">📝 交代履歴</div>
-    <div class="log-list" id="log-list"><div class="log-empty">まだ交代はありません</div></div>
   </div>
 </div>
 
@@ -515,6 +502,7 @@ let pitchOrder={green:[],black:[]};
 let subLog={green:[],black:[]};
 
 // UI state
+let ruleMode=9; // 9人制 or 6人制
 let swapFirstId=null;
 let pickerMode=null, subOutId=null, subInId=null;
 let posModalPid=null, posModalSel=null;
@@ -528,6 +516,28 @@ const fa=()=>fieldAssign[currentTeam];
 const po=()=>pitchOrder[currentTeam];
 const sl=()=>subLog[currentTeam];
 const mine=()=>players.filter(p=>p.team===currentTeam);
+
+// ══════════════════════════════════
+// 6人制 / 9人制 切替
+// ══════════════════════════════════
+const OUTFIELD=['LF','CF','RF'];
+function setRule(n){
+  ruleMode=n;
+  document.getElementById('rbtn9').className='rbtn'+(n===9?' on9':'');
+  document.getElementById('rbtn6').className='rbtn'+(n===6?' on6':'');
+  saveState(); renderAll();
+  toast(n===6?'6人制モード（外野なし）':'9人制モードに切替');
+}
+function applyRuleUI(){
+  document.getElementById('rbtn9').className='rbtn'+(ruleMode===9?' on9':'');
+  document.getElementById('rbtn6').className='rbtn'+(ruleMode===6?' on6':'');
+}
+function activePosForRule(){
+  // 6人制は外野3つを除外
+  return ruleMode===6
+    ? Object.fromEntries(Object.entries(FPOS).filter(([k])=>!OUTFIELD.includes(k)))
+    : FPOS;
+}
 
 // ── 打順を詰め直す（スタメンのorder番号を1から連番に整理）──
 function reorderStamen(team) {
@@ -687,13 +697,22 @@ function moveToBench(id, e){
   saveState(); toast(`${p.name} をベンチへ`); renderAll();
 }
 
-// ↑ ベンチ→スタメン末尾へ追加
+// ↑ ベンチ→スタメン末尾へ追加（ポジション引き継ぎ）
 function moveToStamen(id, e){
   e.stopPropagation();
   const p=players.find(x=>x.id===id); if(!p||p.inStamen)return;
   const maxOrd=Math.max(0,...mine().filter(x=>x.inStamen).map(x=>x.order));
   p.inStamen=true; p.order=maxOrd+1;
-  saveState(); toast(`${p.name} をスタメンへ`); renderAll();
+  // ポジションが設定済みなら fieldAssign も復元（重複なければ）
+  if(p.pos!=='―'&&p.pos!=='DH'){
+    const posKey=p.pos;
+    if(FPOS[posKey]!==undefined){ // 有効なフィールドポジション
+      if(!fa()[posKey]){ // 空いていれば配置
+        fa()[posKey]=p.id;
+      }
+    }
+  }
+  saveState(); toast(`${p.name} をスタメンへ（${p.pos!=='―'?p.pos:'ポジション未定'}）`); renderAll();
 }
 
 function cancelSwap(){
@@ -730,7 +749,8 @@ function doSwap(idA,idB){
 // ══════════════════════════════════
 function renderFieldSlots(){
   const c=document.getElementById('field-slots');
-  c.innerHTML=Object.entries(FPOS).map(([pos,coord])=>{
+  const activeFpos=activePosForRule();
+  c.innerHTML=Object.entries(activeFpos).map(([pos,coord])=>{
     const pid=fa()[pos], p=pid?players.find(x=>x.id===pid):null;
     const sn=p?(p.name.split(' ')[1]||p.name):'';
     return `<div class="fslot" style="left:${coord.x}%;top:${coord.y}%;" data-fpos="${pos}">
@@ -769,7 +789,10 @@ function renderFieldSlots(){
 function openPosModal(pid){
   const p=players.find(x=>x.id===pid); posModalPid=pid; posModalSel=p.pos;
   document.getElementById('pos-modal-title').textContent=`${p.name} #${p.num??'—'}`;
-  document.getElementById('pos-grid').innerHTML=POS_LIST.map(pos=>
+  const activePosList=ruleMode===6
+    ? POS_LIST.filter(p=>!OUTFIELD.includes(p))
+    : POS_LIST;
+  document.getElementById('pos-grid').innerHTML=activePosList.map(pos=>
     `<button class="pgb ${pos===posModalSel?'sel':''}" onclick="selPos('${pos}')">${pos}<small>${POS_JP[pos]}</small></button>`
   ).join('');
   document.getElementById('pos-modal').classList.add('open');
@@ -777,12 +800,34 @@ function openPosModal(pid){
 function selPos(pos){ posModalSel=pos; document.querySelectorAll('#pos-grid .pgb').forEach(b=>b.classList.toggle('sel',b.textContent.trim().startsWith(pos))); }
 function confirmPos(){
   const p=players.find(x=>x.id===posModalPid); if(!p)return;
-  p.pos=posModalSel;
   if(posModalSel!=='―'&&posModalSel!=='DH'){
-    Object.keys(fa()).forEach(k=>{ if(fa()[k]===p.id)fa()[k]=null; });
+    // Aの旧ポジションを記録
+    const aOldPos = Object.keys(fa()).find(k=>fa()[k]===p.id) || null;
+    // そのポジションにいる既存選手Bを記録
+    const prevId = fa()[posModalSel];
+    const prev = prevId ? players.find(x=>x.id===prevId) : null;
+    // Aの旧ポジションからAを外す
+    if(aOldPos) fa()[aOldPos]=null;
+    // BをAの旧ポジションへ移動（スワップ）
+    if(prev && aOldPos){
+      prev.pos=aOldPos;
+      fa()[aOldPos]=prev.id;
+    } else if(prev){
+      prev.pos='―';
+    }
+    // Aをセレクトされたポジションへ
     fa()[posModalSel]=p.id;
+    p.pos=posModalSel;
+    const msg = prev
+      ? `${p.name}↔${prev.name} ポジション交換`
+      : `${p.name} → ${posModalSel}`;
+    closePosModal(); saveState(); toast(msg); renderAll();
+  } else {
+    // '―' or 'DH' の場合はfield解除のみ
+    Object.keys(fa()).forEach(k=>{ if(fa()[k]===p.id) fa()[k]=null; });
+    p.pos=posModalSel;
+    closePosModal(); saveState(); toast(`${p.name} → ${posModalSel}`); renderAll();
   }
-  closePosModal(); saveState(); toast(`${p.name} → ${posModalSel}`); renderAll();
 }
 function closePosModal(){ document.getElementById('pos-modal').classList.remove('open'); }
 
@@ -799,12 +844,36 @@ function openFaModal(pos){
 function closeFaModal(){ document.getElementById('fa-modal').classList.remove('open'); }
 function confirmFa(){
   const val=document.getElementById('fa-sel').value, pid=val?+val:null;
-  if(pid) Object.keys(fa()).forEach(k=>{ if(fa()[k]===pid)fa()[k]=null; });
-  fa()[faModalPos]=pid;
-  if(pid){ const p=players.find(x=>x.id===pid); if(p)p.pos=faModalPos; }
-  closeFaModal(); saveState();
-  toast(pid?`${players.find(x=>x.id===pid)?.name} → ${faModalPos}`:`${faModalPos} クリア`);
-  renderAll();
+  if(pid){
+    const p=players.find(x=>x.id===pid);
+    // Aの旧ポジションを記録
+    const aOldPos=Object.keys(fa()).find(k=>fa()[k]===pid) || null;
+    // そのポジションにいる既存選手Bを記録
+    const prevId=fa()[faModalPos];
+    const prev=prevId&&prevId!==pid ? players.find(x=>x.id===prevId) : null;
+    // Aの旧ポジションからAを外す
+    if(aOldPos) fa()[aOldPos]=null;
+    // BをAの旧ポジションへ移動（スワップ）
+    if(prev && aOldPos){
+      prev.pos=aOldPos;
+      fa()[aOldPos]=prev.id;
+    } else if(prev){
+      prev.pos='―';
+    }
+    // Aをセレクトされたポジションへ
+    fa()[faModalPos]=pid;
+    if(p) p.pos=faModalPos;
+    const msg=prev
+      ? `${p?.name}↔${prev.name} ポジション交換`
+      : `${p?.name} → ${faModalPos}`;
+    closeFaModal(); saveState(); toast(msg); renderAll();
+  } else {
+    // クリア
+    const prevId=fa()[faModalPos];
+    if(prevId){ const prev=players.find(x=>x.id===prevId); if(prev) prev.pos='―'; }
+    fa()[faModalPos]=null;
+    closeFaModal(); saveState(); toast(`${faModalPos} クリア`); renderAll();
+  }
 }
 
 // ══════════════════════════════════
@@ -1021,7 +1090,7 @@ function newGame(){
 // ══════════════════════════════════
 // SAVE / LOAD
 // ══════════════════════════════════
-function getState(){ return {players,nextId,fieldAssign,pitchOrder,subLog,currentTeam}; }
+function getState(){ return {players,nextId,fieldAssign,pitchOrder,subLog,currentTeam,ruleMode}; }
 function applyState(d, fromRemote){
   if(d.players)    players    =d.players;
   if(d.nextId)     nextId     =d.nextId;
@@ -1030,6 +1099,7 @@ function applyState(d, fromRemote){
   if(d.subLog)     subLog     =d.subLog;
   // リモートからの同期時はチーム切替・タブ遷移を同期しない
   if(!fromRemote && d.currentTeam) currentTeam=d.currentTeam;
+  if(d.ruleMode) ruleMode=d.ruleMode;
 }
 function saveState(){
   const s=getState();
@@ -1064,7 +1134,6 @@ function initFb(cfg){
       applyState(d, true);  // リモート同期：チーム切替は引き継がない
       renderAll();
       // 現在表示中のタブだけ更新
-      if(document.getElementById('pg-sub').classList.contains('on')) renderSubPage();
       if(document.getElementById('pg-pitcher').classList.contains('on')) renderPitchPage();
       if(document.getElementById('pg-settings').classList.contains('on')) renderSettingsPage();
       badge('📡 同期済');
@@ -1128,6 +1197,7 @@ loadLocal();
 applyTeamUI(currentTeam);
 renderAll();
 
+applyRuleUI();
 // Firebase自動接続（デフォルト設定 or 保存済み設定）
 try{
   const saved=JSON.parse(localStorage.getItem('fb_cfg')||'{}');
