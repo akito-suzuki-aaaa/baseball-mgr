@@ -108,14 +108,35 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .field-svg{position:absolute;inset:0;width:100%;height:100%;}
 .field-slots{position:absolute;inset:0;}
 .fslot{position:absolute;transform:translate(-50%,-50%);cursor:pointer;}
-.fsi{background:rgba(8,15,26,.9);border:1.5px solid var(--border2);border-radius:6px;
-  padding:3px 5px;text-align:center;white-space:nowrap;transition:all .2s;min-width:54px;}
-.fsi.has{border-color:var(--gold);}
-.fsi.pressing{border-color:var(--blue);box-shadow:0 0 10px rgba(61,168,255,.5);transform:scale(1.06);}
-.fsi-pos{font-size:11px;color:var(--gold);font-weight:700;letter-spacing:1px;}
-.fsi-name{font-size:12px;font-weight:700;color:var(--text);}
-.fsi-empty{color:var(--text3);}
-.fsi-num{font-size:11px;color:var(--text2);}
+.fsi{
+  background:rgba(6,12,24,.93);
+  border:1.5px solid var(--border2);
+  border-radius:8px;
+  padding:5px 8px;
+  text-align:center;
+  white-space:nowrap;
+  transition:all .2s;
+  min-width:62px;
+  box-shadow:0 2px 8px rgba(0,0,0,.5);
+}
+.fsi.has{
+  border-color:var(--gold);
+  background:rgba(8,18,36,.95);
+  box-shadow:0 2px 12px rgba(240,165,0,.2);
+}
+.fsi-pos{
+  font-family:'Oswald',sans-serif;
+  font-size:12px;color:var(--gold);
+  font-weight:700;letter-spacing:1px;
+  line-height:1.2;
+}
+.fsi-name{
+  font-size:15px;font-weight:900;
+  color:#fff;line-height:1.2;
+  margin-top:1px;
+}
+.fsi-empty{color:var(--text3);font-size:13px;}
+.fsi-num{font-size:11px;color:var(--text2);margin-top:1px;}
 
 /* ── PITCHER PAGE ── */
 #pg-pitcher{flex-direction:column;overflow:hidden;}
@@ -470,7 +491,7 @@ select.psel{flex:1;background:var(--s2);border:1px solid var(--border);color:var
 const POS_LIST=['P','C','1B','2B','3B','SS','LF','CF','RF','DH','―'];
 const POS_JP={P:'投手',C:'捕手','1B':'一塁','2B':'二塁','3B':'三塁',SS:'遊撃',LF:'左翼',CF:'中堅',RF:'右翼',DH:'DH','―':'未定'};
 const POS_NUM={P:'①',C:'②','1B':'③','2B':'④','3B':'⑤',SS:'⑥',LF:'⑦',CF:'⑧',RF:'⑨',DH:'DH','―':''}; 
-const FPOS={P:{x:50,y:54},C:{x:50,y:71},'1B':{x:72,y:57},'2B':{x:62,y:43},'3B':{x:28,y:57},SS:{x:38,y:44},LF:{x:20,y:32},CF:{x:50,y:24},RF:{x:80,y:32}};
+const FPOS={P:{x:50,y:54},C:{x:50,y:76},'1B':{x:72,y:57},'2B':{x:62,y:43},'3B':{x:28,y:57},SS:{x:38,y:44},LF:{x:20,y:32},CF:{x:50,y:24},RF:{x:80,y:32}};
 const SAVE_KEY='bbmgr';
 
 // ══════════════════════════════════
