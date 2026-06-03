@@ -730,14 +730,29 @@ function doSwap(idA,idB){
     [a.order,b.order]=[b.order,a.order];
     toast(`${a.name} ↔ ${b.name}`);
   } else {
-    // スタメン↔ベンチ：人数制限なし（6人制でも自由に）
+    // スタメン↔ベンチ入替
     const s=a.inStamen?a:b, bn=a.inStamen?b:a;
-    // ベンチ→スタメン：スタメンの最後尾に追加
-    const maxOrd=Math.max(0,...players.filter(p=>p.team===currentTeam&&p.inStamen&&p.id!==s.id).map(p=>p.order));
-    bn.inStamen=true; bn.order=s.order; // sの位置に入る
+    bn.inStamen=true; bn.order=s.order;
     s.inStamen=false; s.order=null;
+
+    // sのポジションを取得してbnに引き継ぐ（ポジション交換）
+    const sPos=s.pos;
+    const bnPos=bn.pos;
+
+    // fieldAssign: s→外す、bn→sのポジションへ
+    Object.keys(fa()).forEach(k=>{ if(fa()[k]===s.id) fa()[k]=null; });
+    Object.keys(fa()).forEach(k=>{ if(fa()[k]===bn.id) fa()[k]=null; });
+
+    if(sPos!=='―'&&sPos!=='DH'&&FPOS[sPos]!==undefined){
+      // bnをsのポジションに配置
+      bn.pos=sPos;
+      fa()[sPos]=bn.id;
+    }
+    // sはポジションなしへ
+    s.pos='―';
+
     reorderStamen();
-    toast(`${bn.name} をスタメンへ`);
+    toast(`${bn.name}(${sPos!=='―'?sPos:'未定'}) ↔ ${s.name} 入替`);
   }
   swapFirstId=null;
   document.getElementById('swap-bar').classList.remove('show');
