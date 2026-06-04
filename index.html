@@ -157,17 +157,17 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
   .fsi-num{font-size:11px;}
 
   /* 投手タブ */
-  .pitch-row{padding:12px 16px;gap:12px;border-radius:12px;margin-bottom:6px;}
-  .pseq{font-size:32px;width:28px;}
-  .pname{font-size:28px;font-weight:900;}
-  .pkana{font-size:13px;margin-top:3px;}
-  .pnum{font-size:32px;}
-  .pstat{font-size:15px;padding:4px 12px;border-radius:10px;}
-  .btn-np{font-size:18px;padding:16px;margin-bottom:14px;}
-  .padd-title{font-size:15px;margin-bottom:10px;}
-  select.psel{font-size:16px;padding:10px 12px;}
-  .btn-ap{font-size:16px;padding:10px 18px;}
-  .pitch-add{padding:14px;border-radius:12px;}
+  .pitch-row{padding:14px 18px;gap:14px;border-radius:12px;margin-bottom:6px;}
+  .pseq{font-size:36px;width:32px;}
+  .pname{font-size:30px;font-weight:900;}
+  .pkana{font-size:14px;margin-top:3px;}
+  .pnum{font-size:36px;}
+  .pstat{font-size:16px;padding:5px 14px;border-radius:10px;}
+  .btn-np{font-size:20px;padding:18px;margin-bottom:14px;}
+  .padd-title{font-size:16px;margin-bottom:10px;}
+  select.psel{font-size:18px;padding:12px 14px;}
+  .btn-ap{font-size:18px;padding:12px 20px;}
+  .pitch-add{padding:16px;border-radius:12px;}
 }
 
 /* ── PITCHER PAGE ── */
@@ -180,8 +180,8 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .pitch-row.ap{border-color:var(--green);background:rgba(46,204,113,.1);}
 .pitch-row.dp{opacity:.4;}
 .pseq{font-family:'Oswald',sans-serif;font-size:22px;color:var(--gold);width:20px;flex-shrink:0;}
-.pinfo{flex:1;}.pname{font-size:15px;font-weight:700;}.pkana{font-size:11px;color:var(--text3);}
-.pnum{font-family:'Oswald',sans-serif;font-size:18px;color:var(--blue);}
+.pinfo{flex:1;}.pname{font-size:22px;font-weight:900;}.pkana{font-size:13px;color:var(--text3);}
+.pnum{font-family:'Oswald',sans-serif;font-size:24px;color:var(--blue);}
 .pstat{font-size:13px;font-weight:700;padding:2px 7px;border-radius:9px;}
 .ps-n{background:var(--s3);color:var(--text2);}.ps-a{background:var(--green);color:#000;}.ps-d{background:var(--border);color:var(--text3);}
 .btn-np{width:100%;padding:12px;background:linear-gradient(135deg,var(--gold),var(--gold2));
@@ -236,8 +236,8 @@ select.psel{flex:1;background:var(--s2);border:1px solid var(--border);color:var
 @media(min-width:768px){
   .per{padding:14px 18px;gap:12px;}
   .per-dot{width:13px;height:13px;}
-  .per-nm{font-size:26px;font-weight:700;}
-  .per-kn{font-size:14px;margin-top:3px;}
+  .per-nm{font-size:32px;font-weight:900;}
+  .per-kn{font-size:15px;margin-top:4px;}
   .per-num{
     font-size:30px;min-width:56px;
     font-family:'Oswald',sans-serif;font-weight:700;
@@ -250,7 +250,7 @@ select.psel{flex:1;background:var(--s2);border:1px solid var(--border);color:var
   .ftab{font-size:16px;padding:12px;}
   .sec-title{font-size:18px;padding:10px 14px;}
 }
-.per-name{flex:1;min-width:0;}.per-nm{font-size:14px;font-weight:700;}.per-kn{font-size:11px;color:var(--text3);}
+.per-name{flex:1;min-width:0;}.per-nm{font-size:22px;font-weight:900;}.per-kn{font-size:13px;color:var(--text3);}
 .per-num{font-family:'Oswald',sans-serif;font-size:15px;color:var(--blue);min-width:22px;text-align:right;}
 .btn-ed{padding:3px 8px;background:var(--s3);border:1px solid var(--border2);color:var(--text2);
   border-radius:7px;font-size:12px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;flex-shrink:0;}
@@ -615,7 +615,10 @@ let settingsFilter='all';
 let pitchDragIdx=null;
 
 // helpers
-const fa=()=>fieldAssign[currentTeam];
+const fa=()=>{
+  if(!fieldAssign[currentTeam]) fieldAssign[currentTeam]={P:null,C:null,'1B':null,'2B':null,'3B':null,SS:null,LF:null,CF:null,RF:null};
+  return fieldAssign[currentTeam];
+};
 const po=()=>pitchOrder[currentTeam];
 const sl=()=>subLog[currentTeam];
 const mine=()=>currentTeam==='all'?players:players.filter(p=>p.team===currentTeam);
@@ -668,6 +671,10 @@ function goTab(name,btn){
 // ══════════════════════════════════
 function switchTeam(t){
   currentTeam=t; cancelSwap(); subOutId=null; subInId=null;
+  // 全員モード初回：allLineupが空なら全選手をベンチとして初期化
+  if(t==='all' && allLineup.length===0){
+    players.forEach(p=>allLineup.push({playerId:p.id,inStamen:false,order:null}));
+  }
   applyTeamUI(t); saveState();
   renderAll(); renderSubPage(); renderPitchPage();
 }
@@ -689,6 +696,10 @@ function renderAll(){ renderOrderList(); renderFieldSlots(); }
 function renderOrderList(){
   let stamen, bench;
   if(currentTeam==='all'){
+    // 初回：allLineupが空なら全選手をベンチとして初期化
+    if(allLineup.length===0){
+      players.forEach(p=>allLineup.push({playerId:p.id,inStamen:false,order:null}));
+    }
     // 全員モード：allLineupを使う
     const inIds  = allLineup.filter(x=>x.inStamen).sort((a,b)=>a.order-b.order).map(x=>x.playerId);
     const outIds = allLineup.filter(x=>!x.inStamen).map(x=>x.playerId);
@@ -1267,13 +1278,22 @@ function getState(){ return {players,nextId,fieldAssign,pitchOrder,subLog,curren
 function applyState(d, fromRemote){
   if(d.players)    players    =d.players;
   if(d.nextId)     nextId     =d.nextId;
-  if(d.fieldAssign)fieldAssign=d.fieldAssign;
-  if(d.pitchOrder) pitchOrder =d.pitchOrder;
-  if(d.subLog)     subLog     =d.subLog;
-  // リモートからの同期時はチーム切替・タブ遷移を同期しない
+  if(d.fieldAssign){
+    fieldAssign=d.fieldAssign;
+    // 古いデータに 'all' がない場合は初期化
+    if(!fieldAssign.all) fieldAssign.all={P:null,C:null,'1B':null,'2B':null,'3B':null,SS:null,LF:null,CF:null,RF:null};
+  }
+  if(d.pitchOrder){
+    pitchOrder=d.pitchOrder;
+    if(!pitchOrder.all) pitchOrder.all=[];
+  }
+  if(d.subLog){
+    subLog=d.subLog;
+    if(!subLog.all) subLog.all=[];
+  }
   if(!fromRemote && d.currentTeam) currentTeam=d.currentTeam;
   if(d.ruleMode)   ruleMode  =d.ruleMode;
-  if(d.allLineup) allLineup =d.allLineup;
+  if(d.allLineup)  allLineup =d.allLineup;
 }
 function saveState(){
   const s=getState();
