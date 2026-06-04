@@ -155,6 +155,19 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
   .fsi-name{font-size:15px;}
   .fsi-empty{font-size:13px;}
   .fsi-num{font-size:11px;}
+
+  /* 投手タブ */
+  .pitch-row{padding:12px 16px;gap:12px;border-radius:12px;margin-bottom:6px;}
+  .pseq{font-size:32px;width:28px;}
+  .pname{font-size:28px;font-weight:900;}
+  .pkana{font-size:13px;margin-top:3px;}
+  .pnum{font-size:32px;}
+  .pstat{font-size:15px;padding:4px 12px;border-radius:10px;}
+  .btn-np{font-size:18px;padding:16px;margin-bottom:14px;}
+  .padd-title{font-size:15px;margin-bottom:10px;}
+  select.psel{font-size:16px;padding:10px 12px;}
+  .btn-ap{font-size:16px;padding:10px 18px;}
+  .pitch-add{padding:14px;border-radius:12px;}
 }
 
 /* ── PITCHER PAGE ── */
@@ -581,13 +594,18 @@ let players=[
   {id:21,name:'篠部 大和',kana:'さなべ やまと', num:42, pos:'―',order:9,inStamen:true, subbedOut:false,team:'black'},
 ];
 nextId=22;
-let fieldAssign={green:{P:null,C:null,'1B':null,'2B':null,'3B':null,SS:null,LF:null,CF:null,RF:null},
-                 black:{P:null,C:null,'1B':null,'2B':null,'3B':null,SS:null,LF:null,CF:null,RF:null}};
-let pitchOrder={green:[],black:[]};
-let subLog={green:[],black:[]};
+let fieldAssign={
+  green:{P:null,C:null,'1B':null,'2B':null,'3B':null,SS:null,LF:null,CF:null,RF:null},
+  black:{P:null,C:null,'1B':null,'2B':null,'3B':null,SS:null,LF:null,CF:null,RF:null},
+  all:  {P:null,C:null,'1B':null,'2B':null,'3B':null,SS:null,LF:null,CF:null,RF:null}
+};
+let pitchOrder={green:[],black:[],all:[]};
+let subLog={green:[],black:[],all:[]};
 
 // UI state
 let ruleMode=9; // 9人制 or 6人制
+// 全員モード専用打順 [{playerId, order, inStamen}]
+let allLineup=[];
 let swapFirstId=null;
 let pickerMode=null, subOutId=null, subInId=null;
 let posModalPid=null, posModalSel=null;
@@ -597,9 +615,9 @@ let settingsFilter='all';
 let pitchDragIdx=null;
 
 // helpers
-const fa=()=>fieldAssign[currentTeam==='all'?'green':currentTeam];
-const po=()=>pitchOrder[currentTeam==='all'?'green':currentTeam];
-const sl=()=>subLog[currentTeam==='all'?'green':currentTeam];
+const fa=()=>fieldAssign[currentTeam];
+const po=()=>pitchOrder[currentTeam];
+const sl=()=>subLog[currentTeam];
 const mine=()=>currentTeam==='all'?players:players.filter(p=>p.team===currentTeam);
 
 // ══════════════════════════════════
@@ -669,8 +687,27 @@ function applyTeamUI(t){
 function renderAll(){ renderOrderList(); renderFieldSlots(); }
 
 function renderOrderList(){
-  const stamen=mine().filter(p=>p.inStamen).sort((a,b)=>a.order-b.order);
-  const bench =mine().filter(p=>!p.inStamen);
+  let stamen, bench;
+  if(currentTeam==='all'){
+    // 全員モード：allLineupを使う
+    const inIds  = allLineup.filter(x=>x.inStamen).sort((a,b)=>a.order-b.order).map(x=>x.playerId);
+    const outIds = allLineup.filter(x=>!x.inStamen).map(x=>x.playerId);
+    // allLineupにいない選手はベンチ扱いで追加
+    const allIds = players.map(p=>p.id);
+    const unset  = allIds.filter(id=>!allLineup.find(x=>x.playerId===id));
+    stamen = inIds.map(id=>{
+      const p=players.find(x=>x.id===id); if(!p)return null;
+      const li=allLineup.find(x=>x.playerId===id);
+      return {...p, order:li.order, inStamen:true, pos: allGetPos(id)};
+    }).filter(Boolean);
+    bench = [...outIds,...unset].map(id=>{
+      const p=players.find(x=>x.id===id); if(!p)return null;
+      return {...p, order:null, inStamen:false, pos: allGetPos(id)};
+    }).filter(Boolean);
+  } else {
+    stamen = mine().filter(p=>p.inStamen).sort((a,b)=>a.order-b.order);
+    bench  = mine().filter(p=>!p.inStamen);
+  }
   const el=document.getElementById('order-list');
   el.innerHTML=`
     <table class="member-table">
@@ -685,6 +722,12 @@ function renderOrderList(){
         ${bench.map(p=>orowHTML(p,false)).join('')}
       </tbody>
     </table>`;
+}
+
+// 全員モード用ポジション取得
+function allGetPos(id){
+  const pos = Object.entries(fieldAssign['all']).find(([k,v])=>v===id);
+  return pos ? pos[0] : '―';
 }
 
 function orowHTML(p,isStamen){
@@ -713,7 +756,9 @@ function orowHTML(p,isStamen){
       <div class="td-posname">${p.pos!=='―'?p.pos:''}</div>
     </td>
     <td class="td-name">
-      <div class="td-name-main">${p.name}</div>
+      <div class="td-name-main">
+        ${currentTeam==='all'?`<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.team==='green'?'var(--tg)':'var(--tb)'};margin-right:6px;vertical-align:middle;"></span>`:''}${p.name}
+      </div>
       <div class="td-name-kana">${p.kana}</div>
     </td>
     <td class="td-num">${p.num??'—'}</td>
@@ -746,7 +791,8 @@ function _onRowTouchCancel(){
 }
 function _doRowTap(id){
   const p=players.find(x=>x.id===id);
-  if(!p||p.subbedOut)return;
+  if(!p)return;
+  if(currentTeam!=='all'&&p.subbedOut)return;
   if(swapFirstId===null){
     swapFirstId=id;
     document.getElementById('swap-bar').classList.add('show');
@@ -761,6 +807,7 @@ function _doRowTap(id){
 // ↓ スタメン→ベンチ（人数問わず）
 function moveToBench(id, e){
   e.stopPropagation();
+  if(currentTeam==='all'){ moveToBenchAll(id); return; }
   const p=players.find(x=>x.id===id); if(!p||!p.inStamen)return;
   p.inStamen=false; p.order=null;
   reorderStamen();
@@ -772,6 +819,7 @@ function moveToBench(id, e){
 // ↑ ベンチ→スタメン末尾へ追加（ポジション引き継ぎ）
 function moveToStamen(id, e){
   e.stopPropagation();
+  if(currentTeam==='all'){ moveToStamenAll(id); return; }
   const p=players.find(x=>x.id===id); if(!p||p.inStamen)return;
   const maxOrd=Math.max(0,...mine().filter(x=>x.inStamen).map(x=>x.order));
   p.inStamen=true; p.order=maxOrd+1;
@@ -787,6 +835,54 @@ function moveToStamen(id, e){
   saveState(); toast(`${p.name} をスタメンへ（${p.pos!=='―'?p.pos:'ポジション未定'}）`); renderAll();
 }
 
+// ── 全員モード専用操作 ──
+function allEnsure(id){
+  if(!allLineup.find(x=>x.playerId===id))
+    allLineup.push({playerId:id,inStamen:false,order:null});
+}
+function allIsStamen(id){ const li=allLineup.find(x=>x.playerId===id); return li&&li.inStamen; }
+function allGetOrder(id){ const li=allLineup.find(x=>x.playerId===id); return li?li.order:null; }
+
+function doSwapAll(idA,idB){
+  allEnsure(idA); allEnsure(idB);
+  const la=allLineup.find(x=>x.playerId===idA);
+  const lb=allLineup.find(x=>x.playerId===idB);
+  if(la.inStamen&&lb.inStamen){
+    [la.order,lb.order]=[lb.order,la.order];
+    toast(`${players.find(p=>p.id===idA)?.name} ↔ ${players.find(p=>p.id===idB)?.name}`);
+  } else {
+    const s=la.inStamen?la:lb, bn=la.inStamen?lb:la;
+    bn.inStamen=true; bn.order=s.order;
+    s.inStamen=false; s.order=null;
+    reorderAllStamen();
+    toast(`${players.find(p=>p.id===bn.playerId)?.name} をスタメンへ`);
+  }
+  swapFirstId=null;
+  document.getElementById('swap-bar').classList.remove('show');
+  saveState(); renderAll();
+}
+
+function reorderAllStamen(){
+  allLineup.filter(x=>x.inStamen).sort((a,b)=>a.order-b.order).forEach((x,i)=>x.order=i+1);
+}
+
+function moveToBenchAll(id){
+  allEnsure(id);
+  const li=allLineup.find(x=>x.playerId===id); if(!li||!li.inStamen)return;
+  li.inStamen=false; li.order=null;
+  reorderAllStamen();
+  Object.keys(fieldAssign['all']).forEach(k=>{ if(fieldAssign['all'][k]===id) fieldAssign['all'][k]=null; });
+  saveState(); toast(`${players.find(p=>p.id===id)?.name} をベンチへ`); renderAll();
+}
+
+function moveToStamenAll(id){
+  allEnsure(id);
+  const li=allLineup.find(x=>x.playerId===id); if(!li||li.inStamen)return;
+  const maxOrd=Math.max(0,...allLineup.filter(x=>x.inStamen).map(x=>x.order));
+  li.inStamen=true; li.order=maxOrd+1;
+  saveState(); toast(`${players.find(p=>p.id===id)?.name} をスタメンへ`); renderAll();
+}
+
 function cancelSwap(){
   swapFirstId=null;
   document.getElementById('swap-bar').classList.remove('show');
@@ -794,6 +890,9 @@ function cancelSwap(){
 }
 
 function doSwap(idA,idB){
+  if(currentTeam==='all'){
+    doSwapAll(idA,idB); return;
+  }
   const a=players.find(p=>p.id===idA), b=players.find(p=>p.id===idB);
   if(!a||!b)return;
 
@@ -1164,7 +1263,7 @@ function newGame(){
 // ══════════════════════════════════
 // SAVE / LOAD
 // ══════════════════════════════════
-function getState(){ return {players,nextId,fieldAssign,pitchOrder,subLog,currentTeam,ruleMode}; }
+function getState(){ return {players,nextId,fieldAssign,pitchOrder,subLog,currentTeam,ruleMode,allLineup}; }
 function applyState(d, fromRemote){
   if(d.players)    players    =d.players;
   if(d.nextId)     nextId     =d.nextId;
@@ -1173,7 +1272,8 @@ function applyState(d, fromRemote){
   if(d.subLog)     subLog     =d.subLog;
   // リモートからの同期時はチーム切替・タブ遷移を同期しない
   if(!fromRemote && d.currentTeam) currentTeam=d.currentTeam;
-  if(d.ruleMode) ruleMode=d.ruleMode;
+  if(d.ruleMode)   ruleMode  =d.ruleMode;
+  if(d.allLineup) allLineup =d.allLineup;
 }
 function saveState(){
   const s=getState();
@@ -1242,7 +1342,7 @@ function initFb(cfg){
 function startFbListener(){
   if(!fbDb)return;
   // チームごとに独立したパスで同期（GREEN↔BLACK干渉を防ぐ）
-  ['green','black'].forEach(team=>{
+  ['green','black','all'].forEach(team=>{
     fbDb.ref('team/'+team).on('value',snap=>{
       const d=snap.val(); if(!d)return;
       if(d._ts && d._ts<=fbIgnoreTs) return;
@@ -1274,7 +1374,7 @@ function fbSave(state){
     fbIgnoreTs=ts;
     fbBlockUntil=ts+3000;
     // チームごとのパスに保存
-    fbDb.ref('team/'+(currentTeam==='all'?'green':currentTeam)).set({...state,_ts:ts})
+    fbDb.ref('team/'+currentTeam).set({...state,_ts:ts})
       .then(()=>{ fbTimer=null; badge('📡 同期完了'); })
       .catch(()=>{ fbTimer=null; badge('⚠ 同期失敗'); });
   },600);
