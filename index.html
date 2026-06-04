@@ -220,6 +220,17 @@ select.psel{flex:1;background:var(--s2);border:1px solid var(--border);color:var
 .per:last-child{border-bottom:none;}
 .per-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 .per-dot.g{background:var(--tg);}.per-dot.b{background:var(--tb);}
+@media(min-width:768px){
+  .per{padding:11px 14px;font-size:16px;gap:10px;}
+  .per-dot{width:11px;height:11px;}
+  .per-nm{font-size:20px;}
+  .per-kn{font-size:12px;margin-top:2px;}
+  .per-num{font-size:20px;min-width:36px;}
+  .btn-ed,.btn-dl{font-size:14px;padding:6px 14px;}
+  .btn-add-p{font-size:16px;padding:13px;}
+  .ftab{font-size:14px;padding:10px;}
+  .sec-title{font-size:16px;padding:8px 12px;}
+}
 .per-name{flex:1;min-width:0;}.per-nm{font-size:14px;font-weight:700;}.per-kn{font-size:11px;color:var(--text3);}
 .per-num{font-family:'Oswald',sans-serif;font-size:15px;color:var(--blue);min-width:22px;text-align:right;}
 .btn-ed{padding:3px 8px;background:var(--s3);border:1px solid var(--border2);color:var(--text2);
@@ -307,23 +318,44 @@ select.psel{flex:1;background:var(--s2);border:1px solid var(--border);color:var
 .rbtn.on6{background:var(--red);color:#fff;}
 .fslot.hidden{display:none;}
 
-/* タブレット（768px以上）で名前を大きく */
+/* タブレット（768px以上） */
 @media(min-width:768px){
   .order-panel{width:48%;}
-  .member-table th{font-size:13px;padding:9px 4px;}
-  .td-order{width:44px;}
-  .td-order-num{font-size:28px;}
-  .td-order-num.b{font-size:16px;}
-  .td-pos{width:52px;}
-  .td-posnum{font-size:22px;}
-  .td-posname{font-size:10px;}
-  .td-name{padding:9px 16px;}
-  .td-name-main{font-size:26px;letter-spacing:.5px;}
+  .order-list{padding:0 0 0 8px;}
+
+  /* ヘッダー */
+  .member-table th{font-size:14px;padding:10px 6px;letter-spacing:1.5px;}
+  .member-table th.th-name{padding-left:20px;}
+
+  /* 打順列 */
+  .td-order{width:52px;}
+  .td-order-num{font-size:34px;padding:10px 0;}
+  .td-order-num.b{font-size:18px;padding:12px 0;}
+
+  /* 守備列 */
+  .td-pos{width:58px;padding:8px 4px;}
+  .td-posnum{font-size:26px;}
+  .td-posname{font-size:11px;margin-top:2px;}
+
+  /* 選手名列 */
+  .td-name{padding:10px 20px;}
+  .td-name-main{font-size:30px;font-weight:900;letter-spacing:.5px;}
   .td-name-kana{font-size:13px;margin-top:3px;}
-  .td-num{font-size:26px;width:50px;}
-  .td-btn{width:46px;}
-  .btn-bench,.btn-stamen{font-size:18px;padding:7px 8px;}
-  .sub-badge{font-size:12px;padding:3px 8px;}
+
+  /* 背番号列 */
+  .td-num{
+    width:64px;font-size:34px;
+    /* ネオン系グラデーション */
+    background-image:linear-gradient(135deg,#00d4ff,#0099ff,#0055ff);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+    background-clip:text;
+    filter:drop-shadow(0 0 6px rgba(0,153,255,.5));
+  }
+
+  /* 操作列 */
+  .td-btn{width:50px;}
+  .btn-bench,.btn-stamen{font-size:20px;padding:8px 10px;border-radius:8px;}
+  .sub-badge{font-size:13px;padding:3px 8px;}
 }
 .toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:var(--s2);
   border:1px solid var(--gold);color:var(--text);padding:7px 14px;border-radius:16px;
@@ -1182,7 +1214,7 @@ function initFb(cfg){
     fbIgnoreTs=initTs;
     fbBlockUntil=initTs+8000; // 8秒間は受信ブロック
 
-    fbDb.ref('state').set({...getState(),_ts:initTs})
+    fbDb.ref('team/'+currentTeam).set({...getState(),_ts:initTs})
       .then(()=>{
         badge('📡 接続完了');
         // ② 書き込み完了後にリスナー開始
@@ -1199,21 +1231,28 @@ function initFb(cfg){
 
 function startFbListener(){
   if(!fbDb)return;
-  fbDb.ref('state').on('value',snap=>{
-    const d=snap.val(); if(!d)return;
-    // 自分が書いたデータ以前は無視
-    if(d._ts && d._ts<=fbIgnoreTs) return;
-    // 書き込み直後のブロック期間は無視
-    if(Date.now()<fbBlockUntil) return;
-    // 書き込み中は無視
-    if(fbTimer) return;
-    // データ異常チェック
-    if(!d.players||!Array.isArray(d.players)||d.players.length===0) return;
-    applyState(d,true);
-    renderAll();
-    if(document.getElementById('pg-pitcher').classList.contains('on')) renderPitchPage();
-    if(document.getElementById('pg-settings').classList.contains('on')) renderSettingsPage();
-    badge('📡 同期済');
+  // チームごとに独立したパスで同期（GREEN↔BLACK干渉を防ぐ）
+  ['green','black'].forEach(team=>{
+    fbDb.ref('team/'+team).on('value',snap=>{
+      const d=snap.val(); if(!d)return;
+      if(d._ts && d._ts<=fbIgnoreTs) return;
+      if(Date.now()<fbBlockUntil) return;
+      if(fbTimer) return;
+      if(!d.players||!Array.isArray(d.players)||d.players.length===0) return;
+      // そのチームのデータだけ適用
+      const prev=currentTeam;
+      if(d.players)     players    = d.players;
+      if(d.nextId)      nextId     = d.nextId;
+      if(d.fieldAssign) fieldAssign= d.fieldAssign;
+      if(d.pitchOrder)  pitchOrder = d.pitchOrder;
+      if(d.subLog)      subLog     = d.subLog;
+      if(d.ruleMode)    ruleMode   = d.ruleMode;
+      // currentTeamは変えない
+      renderAll();
+      if(document.getElementById('pg-pitcher').classList.contains('on')) renderPitchPage();
+      if(document.getElementById('pg-settings').classList.contains('on')) renderSettingsPage();
+      badge('📡 同期済');
+    });
   });
 }
 
@@ -1223,10 +1262,11 @@ function fbSave(state){
   fbTimer=setTimeout(()=>{
     const ts=Date.now();
     fbIgnoreTs=ts;
-    fbBlockUntil=ts+5000;   // 保存後5秒は受信ブロック
-    fbDb.ref('state').set({...state,_ts:ts})
-      .then(()=>badge('📡 同期完了'))
-      .catch(()=>badge('⚠ 同期失敗'));
+    fbBlockUntil=ts+3000;
+    // チームごとのパスに保存
+    fbDb.ref('team/'+currentTeam).set({...state,_ts:ts})
+      .then(()=>{ fbTimer=null; badge('📡 同期完了'); })
+      .catch(()=>{ fbTimer=null; badge('⚠ 同期失敗'); });
   },600);
 }
 
