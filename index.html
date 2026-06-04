@@ -44,7 +44,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .team-sw{display:flex;gap:2px;background:var(--s2);border:1px solid var(--border);border-radius:18px;padding:2px;}
 .tbtn{padding:4px 10px;border-radius:14px;font-size:13px;font-weight:700;font-family:'Noto Sans JP',sans-serif;
   border:none;background:none;color:var(--text2);cursor:pointer;transition:all .2s;white-space:nowrap;}
-.tbtn.og{background:var(--tg);color:#fff;} .tbtn.ob{background:var(--tb);color:#fff;}
+.tbtn.og{background:var(--tg);color:#fff;} .tbtn.ob{background:var(--tb);color:#fff;} .tbtn.oa{background:var(--gold);color:#000;}
 .tabs{display:flex;gap:2px;background:var(--s2);border:1px solid var(--border);border-radius:18px;padding:2px;}
 .tab{padding:4px 9px;border-radius:14px;font-size:13px;font-weight:700;font-family:'Noto Sans JP',sans-serif;
   border:none;background:none;color:var(--text2);cursor:pointer;transition:all .2s;white-space:nowrap;}
@@ -327,7 +327,7 @@ select.psel{flex:1;background:var(--s2);border:1px solid var(--border);color:var
 /* タブレット（768px以上） */
 @media(min-width:768px){
   .order-panel{width:48%;}
-  .order-list{padding:0 0 0 8px;}
+  .order-list{padding:0 0 0 20px;}
 
   /* ヘッダー */
   .member-table th{font-size:14px;padding:10px 6px;letter-spacing:1.5px;}
@@ -378,6 +378,7 @@ select.psel{flex:1;background:var(--s2);border:1px solid var(--border);color:var
 <div class="hdr" id="hdr">
   <div><div class="hdr-logo">⚾ 大阪オールスターズJr 8期生</div></div>
   <div class="team-sw">
+    <button class="tbtn"    id="tbtn-a" onclick="switchTeam('all')">全員</button>
     <button class="tbtn og" id="tbtn-g" onclick="switchTeam('green')">🟢 GREEN</button>
     <button class="tbtn"    id="tbtn-b" onclick="switchTeam('black')">⚫ BLACK</button>
   </div>
@@ -596,10 +597,10 @@ let settingsFilter='all';
 let pitchDragIdx=null;
 
 // helpers
-const fa=()=>fieldAssign[currentTeam];
-const po=()=>pitchOrder[currentTeam];
-const sl=()=>subLog[currentTeam];
-const mine=()=>players.filter(p=>p.team===currentTeam);
+const fa=()=>fieldAssign[currentTeam==='all'?'green':currentTeam];
+const po=()=>pitchOrder[currentTeam==='all'?'green':currentTeam];
+const sl=()=>subLog[currentTeam==='all'?'green':currentTeam];
+const mine=()=>currentTeam==='all'?players:players.filter(p=>p.team===currentTeam);
 
 // ══════════════════════════════════
 // 6人制 / 9人制 切替
@@ -653,10 +654,13 @@ function switchTeam(t){
   renderAll(); renderSubPage(); renderPitchPage();
 }
 function applyTeamUI(t){
+  document.getElementById('tbtn-a').className='tbtn'+(t==='all'?' oa':'');
   document.getElementById('tbtn-g').className='tbtn'+(t==='green'?' og':'');
   document.getElementById('tbtn-b').className='tbtn'+(t==='black'?' ob':'');
-  document.getElementById('hdr').style.borderBottomColor=t==='green'?'var(--tg)':'var(--tb)';
-  document.getElementById('lineup-title').textContent='📋 '+(t==='green'?'🟢 GREEN':'⚫ BLACK');
+  const colors={green:'var(--tg)',black:'var(--tb)',all:'var(--gold)'};
+  document.getElementById('hdr').style.borderBottomColor=colors[t]||'var(--gold)';
+  const labels={green:'🟢 GREEN',black:'⚫ BLACK',all:'👥 全員'};
+  document.getElementById('lineup-title').textContent='📋 '+(labels[t]||'全員');
 }
 
 // ══════════════════════════════════
@@ -1270,7 +1274,7 @@ function fbSave(state){
     fbIgnoreTs=ts;
     fbBlockUntil=ts+3000;
     // チームごとのパスに保存
-    fbDb.ref('team/'+currentTeam).set({...state,_ts:ts})
+    fbDb.ref('team/'+(currentTeam==='all'?'green':currentTeam)).set({...state,_ts:ts})
       .then(()=>{ fbTimer=null; badge('📡 同期完了'); })
       .catch(()=>{ fbTimer=null; badge('⚠ 同期失敗'); });
   },600);
